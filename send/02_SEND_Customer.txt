@@ -1,0 +1,511 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_Customer]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.customer'
+;	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.create_address'
+
+	RemoteRequest: SEND_Customer : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item: Send Customer : Call: SEND_Customer
+;	Add: Item: Send Customer : Call: SEND_Customer_Start
+
+	[Function: SEND_Customer_Start]
+		
+		10 : Start Timer: SEND_Customer_Timer : 1
+
+	[System: Events]
+		
+		SEND_Customer_Timer : Timer: True: Call: SEND_Customer
+
+[Function: SEND_Customer]
+
+	Variable : vName  : String
+	Variable : vMessage : String
+	
+	Variable: vCounter_send : Number: 1
+	Variable: vStatus : String
+
+	06 : Do If: ($$NumItems:SEND_Customer_Tally = 0) :  Stop Timer: SEND_Customer_Timer
+	07 : Do If: ($$NumItems:SEND_Customer_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_Customer_Timer
+	09 : Start Progress: 1 : "Sending Customer" : ""
+
+	10 : Walk Collection: SEND_Customer
+	12 : Set: vStatus : $Status
+;	20 : 	If: $Status
+	22 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Ledger, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 :			Modify Object: (Ledger, ##vName).WebStatus_message[1].WebStatus_message : ##vMessage
+	40 :		End Walk
+	45 : 	End Batch Post
+;	50 : 	End If
+	60 : End Walk
+	
+;	62 : Stop Timer: SEND_Customer_Timer 
+	65 : Do If: ($$NumItems:SEND_Customer_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_Customer_Timer : 1
+
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Request - Customer: Display: SEND_Customer
+
+[Report : SEND_Customer]
+	
+	Form: SEND_Customer
+	
+	[Form: SEND_Customer]
+		
+		Part: SEND_Customer
+		Delete: XMLTag
+
+	[Part: SEND_Customer]
+		
+		Line: SEND_Customer
+		Repeat: SEND_Customer : SEND_Customer_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_Customer]
+			
+			Field: SEND_Customer_name, SEND_Customer_type, SEND_Customer_dotype, SEND_Customer_group
+			Field: SEND_Customer_gst_category,SEND_Customer_pan, SEND_Customer_territory, SEND_Customer_tax_category			
+			Field: SEND_Customer_so_required, SEND_Customer_dn_required,SEND_Customer_default_currency,SEND_Customer_default_price_list
+			Field: SEND_Customer_first_deal_by, SEND_Customer_referred_by,SEND_Customer_permitted_by,SEND_Customer_payment_responsibility
+			
+			Field: SEND_Customer_credit_limit, SEND_Customer_add1, SEND_Customer_add2,SEND_Customer_add3,SEND_Customer_add4
+			Field: SEND_Customer_state_code, SEND_Customer_state, SEND_Customer_country, SEND_Customer_picode, SEND_Customer_city
+			Field: SEND_Customer_tehsil, SEND_Customer_Distrct, SEND_Customer_partygsting
+			
+			Field: SEND_Customer_dob, SEND_Customer_dom, SEND_Customer_ledcontact, SEND_Customer_ledmobile
+			Field: SEND_Customer_email, SEND_Customer_emailcc
+			
+			Field: SEND_company
+
+;			Explode: SEND_Customer_item_group_limit
+			Explode: SEND_Customer_accounts
+
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+			
+			[Field: SEND_Customer_name]
+				
+				Set as: $Name
+				JSONTag: "customer_name"
+				
+			[Field: SEND_Customer_type]
+				
+				Set as: "Company"
+				JSONTag: "customer_type"
+				
+			[Field: SEND_Customer_dotype]
+				
+				Set as: "Customer"
+				JSONTag: "doctype"
+
+			[Field: SEND_Customer_group]
+
+				Set as: $Parent
+				JSONTag : "customer_group"
+
+			[Field: SEND_Customer_gst_category]
+				
+				Set as: if $GSTRegistrationType = "Regular" then "Registered Regular" else + 
+						If $GSTRegistrationType = "Composition" then "Registered Composition" else + 
+						If $GSTRegistrationType = "Consumer" then "Unregistered" else + 
+						If $GSTRegistrationType = "Unregistered" then "Unregistered" else ""
+						
+				JSONTag : "gst_category"
+
+			[Field: SEND_Customer_pan]
+				
+				Set as: $IncomeTaxNumber
+				JSONTag : "pan"
+
+			[Field: SEND_Customer_territory]
+				
+				Set as: "All Territories"
+				JSONTag : "territory"
+
+			[Field: SEND_Customer_tax_category]
+				
+				Set as: if @@CMPStateName = $LedStateName then "In-State" else "Out-State"
+				JSONTag : "tax_category"
+				Invisible : Yes
+
+			[Field: SEND_Customer_so_required]
+				
+				Set as: 1
+				JSONTag : "so_required"
+				Type: Number
+
+			[Field: SEND_Customer_dn_required]
+				
+				Set as: 1
+				JSONTag : "dn_required"
+				Type: Number
+
+			[Field: SEND_Customer_default_currency]
+				
+				Set as: "INR"
+				JSONTag : "default_currency"
+
+			[Field: SEND_Customer_default_price_list]
+				
+				Set as: if $$IsEmpty:$PriceLevel then "Standard Selling" else $PriceLevel
+				JSONTag : "default_price_list"
+
+			[Field: SEND_Customer_first_deal_by]
+				
+				Set as: $LedFirstDealBy
+				JSONTag : "first_deal_by"
+
+			[Field: SEND_Customer_referred_by]
+				
+				Set as: $LedRefBy
+				JSONTag : "referred_by"
+
+			[Field: SEND_Customer_permitted_by]
+				
+				Set as: $LedPermittedBy
+				JSONTag : "permitted_by"
+
+			[Field: SEND_Customer_payment_responsibility]
+
+				Set as: $PymtResp
+				JSONTag : "payment_responsibility"
+
+			[Field: SEND_Customer_credit_limit]
+				
+				Set as: $$Number:$CreditLimit
+				JSONTag : "credit_limit"
+				Type: Number
+
+			[Field: SEND_Customer_add1]
+
+				Set as: $_Address1
+				JSONTag : "address1"
+
+			[Field: SEND_Customer_add2]
+
+				Set as: $_Address2
+				JSONTag : "address2"
+
+			[Field: SEND_Customer_add3]
+
+				Set as: $_Address3
+				JSONTag : "address3"
+
+			[Field: SEND_Customer_add4]
+
+				Set as: $_Address4
+				JSONTag : "address4"
+
+			[Field: SEND_Customer_state]
+
+				Set as: $LedstateName
+				JSONTag : "state"
+
+			[Field: SEND_Customer_state_code]
+
+				Set as: $$GetGSTStateCode:$LedstateName
+				JSONTag : "state_code"
+
+			[Field: SEND_Customer_country]
+
+				Set as: $CountryName
+				JSONTag : "country"
+
+			[Field: SEND_Customer_picode]
+
+				Set as: $PinCode
+				JSONTag : "pincode"
+
+			[Field: SEND_Customer_city]
+
+				Set as: $$GetCustomerCity
+				JSONTag : "city"
+
+					[Function: GetCustomerCity]
+						
+						10 : Do if : (NOt $$IsEmpty:$LEDCity) 		: Return : $LEDCity
+						20 : Do if : (Not $$IsEmpty:$_Address4)		: Return : $_Address4
+						30 : Do if : (Not $$IsEmpty:$_Address3) 	: Return : $_Address3
+						40 : DO if : (Not $$IsEmpty:$_Address2)		: Return : $_Address2
+						50 : Return : "NA"
+
+			[Field: SEND_Customer_tehsil]
+
+				Set as: $LEDTehsil
+				JSONTag : "tehsil"
+
+			[Field: SEND_Customer_Distrct]
+
+				Set as: $LEDDistrict
+				JSONTag : "district"
+				
+			[Field: SEND_Customer_partygsting]
+
+				Set as: $PartyGSTIN
+				JSONTag: "gstin"
+
+
+			[Field: SEND_Customer_dob]
+				
+				Set as: $LEDDOB
+				JSONTag: "dob"
+				
+			[Field: SEND_Customer_dom]
+				
+				Set as: $LEDDOM
+				JSONTag: "dom"
+
+			[Field: SEND_Customer_ledcontact]
+
+				Set as: $LedgerContact
+				JSONTag: "ledgercontact"
+				
+			[Field: SEND_Customer_ledmobile]
+				
+				Set as: $ledgermobile
+				JSONTag: "ledgermobile"
+
+			[Field: SEND_Customer_email]
+				
+				Set as: $email
+				JSONTag: "email"
+
+			[Field: SEND_Customer_emailcc]
+
+				Set as: $emailcc
+				JSONTag: "emailcc"
+
+			[Field: SEND_company]
+
+				Set as: @@ERPNextBranch
+				JSONTag: "company"
+
+;; Customer Item Group Limit
+
+	[Part: SEND_Customer_item_group_limit]
+		
+		Line: SEND_Customer_igl
+		Repeat: SEND_Customer_igl 
+		Set: 4
+		Scroll: Vertical
+		
+		[Line: SEND_Customer_igl]
+			
+			Field: SEND_Customer_igl_parent, SEND_Customer_igl_parentfield, SEND_Customer_igl_parenttype
+			Field: SEND_Customer_igl_company, SEND_Customer_igl_doctype
+			Field: SEND_Customer_igl_EP, SEND_Customer_igl_limit
+			JSONTag : "item_group_limit"
+			Empty: $$Line = 1 and $$IsEmpty:$LedLimitEP or $$Line = 2 and $$IsEmpty:$LedLimitNonEP or $$Line = 3 and $$IsEmpty:$LedLimitNineGreen or $$Line = 4 and $$IsEmpty:$LedLimitELCTRZE
+			
+			[Field: SEND_Customer_igl_parent]
+				
+				Set as: $Name
+				JSONTag: "parent"
+				
+			[Field: SEND_Customer_igl_parentfield]
+				
+				Set as: "item_group_limit"
+				JSONTag: "parentfield "
+
+			[Field: SEND_Customer_igl_parenttype]
+				
+				Set as: "Customer"
+				JSONTag: "parenttype"
+
+			[Field: SEND_Customer_igl_company]
+				
+				Set as: @@ERPNextBranch
+				JSONTag: "company"
+
+			[Field: SEND_Customer_igl_doctype]
+
+				Set as: "Item Group Limit"
+				JSONTag: "doctype"
+
+			[Field: SEND_Customer_igl_EP]
+				
+				Set as: if $$Line = 1 then "Express Product" else + 
+						if $$Line = 2 then "NonEP" else + 
+						if $$Line = 3 then "9Greens" else + 
+						if $$Line = 4 then "Electrize" else ""
+				JSONTag: "item_group"
+				
+			[Field: SEND_Customer_igl_limit]
+				
+				Set as: if $$Line = 1 then $$Number:$LedLimitEP else + 
+						if $$Line = 2 then $$Number:$LedLimitNonEP else + 
+						if $$Line = 3 then $$Number:$LedLimitNineGreen else + 
+						if $$Line = 4 then $$Number:$LedLimitELCTRZE else ""
+				JSONTag: "limit"
+				Type : Number
+
+
+
+
+	[Part: SEND_Customer_accounts]
+		
+		Line: SEND_Customer_accounts
+		Repeat: SEND_Customer_accounts 
+		Set: 1
+		Scroll: Vertical
+		
+		[Line: SEND_Customer_accounts]
+			
+			Field: SEND_CA_account, SEND_company, SEND_CA_doctype
+			JSONTag : "accounts"
+			
+			[Field: SEND_CA_account]
+				
+				Set as: "Debtors" + " - " + @@EnableERPNextCmpAbbr
+				JSONTag: "account"
+				
+			[Field: SEND_CA_doctype]
+				
+				Set as: "Party Account"
+				JSONTag: "doctype"
+
+
+[Collection: SEND_Customer_Tally]
+	
+	Type: Ledger
+	Child Of: $$GroupSundryDebtors
+	Belongs To: Yes
+	Filter : WebStatus
+	Fetch: Name, Parent, PymtResp,LedPermittedBy,LedRefBy,LedFirstDealBy,LedStateName,GSTRegistrationType,IncomeTaxNumber
+	Fetch: LEDDistrict,LEDTehsil,LEDCity,PinCode,CountryName,LedstateName,_Address4,_Address3,_Address2,_Address1,CreditLimit
+	Fetch: PriceLevel
+;	Filter: Customer_DebugFilter
+	
+	[System: Formula]
+		
+		Customer_DebugFilter: $Name IN + 
+				(+
+				"Mr. Aditya Agrawal, Raipur ( Site - Moul Shree Vihar)",+
+				"Mr. Aditya Agrawal, Raipur ( Site - Jhalki)",+
+				"Mr. Pankaj Chawda, Raipur",+
+				"Mr. Nitin Agrawal, Raipur",+
+				"Mr. Roshan Vishwakarma, Raipur",+
+				"Mr. Sanjay Raheja, Raipur",+
+				"Pirda Estate, Zora, Raipur"+
+				)
+
+
+
+[#Form: Ledger]
+	
+	Option: LedgerWebStatus 
+
+	[!Form : LedgerWebStatus]
+		
+		Add : Part : At End : WebStatus
+
+	[PArt : WebStatus]
+		
+		Add : Line : WebStatus, WebStatus_Message, WebStatus_DocName
+	
+	[Line : WebStatus]
+		
+		Field : Short Prompt,WebStatus ,WebStatus1,WebStatusId, WebStatus_Bill, WebStatus_BillX, WebStatus_Bill_Message, WebStatus_Bill_MessageX
+		Local : Field : ShortPrompt : Set as : "Web Status : "
+		
+		[Field : WebStatus]
+			
+			Use : Name Field
+			Storage : WebStatus
+			Set as : #WebStatus1
+			Set Always : YEs
+			;Read Only : Yes
+			case : normal
+			
+		[Field : WebStatus1]
+			
+			Use : Name Field
+			Set as : If $$InAlterMode or $$InDuplicateMode then "0" else if $$InCreateMode then "0" else $WebStatus
+			Invisible : Yes
+
+		[Field: WebStatusId]
+			
+			Use: Short Name Field 
+			Set as: "WebId : " + $$String:$WebID
+			Skip: Yes
+			Invisible: Not $$InDeveloperMode
+			
+		[Field: WebStatus_Bill]
+			
+			Use: Short Name Field 
+			Storage: Bill_Status
+			Set as : #WebStatus_BillX
+			Set Always: Yes
+			Case: Normal
+			
+		[Field: WebStatus_BillX]
+			
+			Use : Name Field
+			Set as : If $$InAlterMode or $$InDuplicateMode then "0" else if $$InCreateMode then "0" else $Bill_Status
+			Invisible : Yes
+			
+		[Field: WebStatus_Bill_Message]
+			
+			Use: Name Field 
+			Storage: Bill_Message
+			Set as: #WebStatus_Bill_MessageX
+			Set Always: Yes
+			
+		[Field: WebStatus_Bill_MessageX]
+			
+			Use: Name Field 
+			Set as: If $$InAlterMode or $$InDuplicateMode then "Altered in Tally" else if $$InCreateMode then "Altered in Tally" else $Bill_Message
+			Set Always: Yes
+			Invisible: Yes
+
+	[Line: WebStatus_Message]
+		
+		Field: WebStatus_Message, WebStatus_Message1
+		
+		[Field: WebStatus_Message]
+			
+			Use: Narration Field 
+			Storage: WebStatus_Message
+			Full Width: Yes
+			Max: 500
+			Set Always: Yes
+			Set as: #WebStatus_Message1
+			
+		[Field: WebStatus_Message1]
+			
+			Use: Narration Field 
+			Full Width: Yes
+			Max: 500
+			Set as: If $$InAlterMode or $$InDuplicateMode then "Altered in Tally" else if $$InCreateMode then "Altered in Tally" else $WebStatus_Message
+			Invisible: Yes
+
+	[Line: WebStatus_DocName]
+		
+		Field: WebStatus_DocName
+		
+		[Field: WebStatus_DocName]
+			
+			Use: Narration Field 
+			Storage: WebStatus_DocName 
+			Full Width: Yes
+			Max: 500
+
+

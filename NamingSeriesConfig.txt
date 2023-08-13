@@ -1,0 +1,71 @@
+;; Shivgoraksh
+
+[Report: NSConfig]
+	
+	Form: NSConfig
+
+[Form: NSConfig]
+	
+	Part: NSConfig
+	
+	[Part: NSConfig]
+		
+		Line: NSConfigTitle,NSConfig
+		Repeat: NSConfig : NS_Entries
+		Scroll: Vertical
+		Break: $$IsEmpty:$NS_Name
+		
+	[Line: NSConfigTitle]
+		
+		Use:NSConfig
+		Local:Field: Default : Delete: Storage
+		Local:Field: Default : Delete: Inactive
+		Local:Field: NS_Name	: Info: "Naming Series"
+		Local:Field: NS_VchType	: Info: "Voucher Type"
+		Border: Column Titles
+		
+	[Line: NSConfig]
+		
+		Field: NS_Name, NS_VchType
+		
+	[Field: NS_Name]
+		
+		Use: Name Field 
+		Case: Normal
+		Storage: NS_Name
+		
+	[Field: NS_VchType]
+		
+		Use:Name Field 
+		Table: List of VoucherTypes
+		Storage: NS_VchType
+		Inactive: $$IsEmpty:$NS_Name
+		
+	[System: UDF]
+		
+		NS_Entries	: Aggregate : 31501
+		NS_Name		: String	: 31502
+		NS_VchType 	: String	: 31503
+		
+		
+	[Collection : ListofNamingSeries]
+		
+		Type: NS_Entries : Company
+		Child Of : ##SVCurrentCompany
+		Fetch: *.*
+		
+	[Function: GetVchTypeByNaming]
+		
+		Parameter: vNamingSeries : String
+		Variable: vResult : String
+
+;		08 : Log: "Parameter " + ##vNamingSeries
+
+		10 : Walk Collection: ListofNamingSeries
+;		02 : Log: "   Looping " + $NS_Name
+		20 : If: ##vNamingSeries contains $NS_Name
+		30 : 	Set: vResult : $NS_VchType
+		40 : End IF
+		50 : End Walk
+		60 : Return: ##vResult
+

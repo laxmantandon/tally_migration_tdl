@@ -1,0 +1,358 @@
+;[#Menu: ExpressIntegration]
+;	
+;	Add: Button: Auto Settings 
+	
+		[Button: Auto Settings]
+			
+			Title: "Import Settings"
+			Key: Ctrl + F9
+			Action : Call: AutoSettings
+
+[Function : AutoSettings]
+	
+;	05 : If : Not $AutoSettingCompleted:Company:##SVCurrentCompany
+
+	10 : Call : VoucherTypeSetup
+	20 : Call : LedgerSetup
+;	22 : Call : TaxLedgerSetup
+;	24 : Call : GroupSetup
+;	25 : Call : CreateStockUnits
+;	26 : Call : CreateStockItems
+;	30 : Modify Object : (Company,##SVCurrentCompany).AutoSettingCompleted[1].AutoSettingCompleted : Yes
+;	50 : End If
+
+	[System: UDF]
+
+		AutoSettingCompleted : Logical: 31501
+
+[Function : VoucherTypeSetup]
+
+	
+	Variable : NumberofSteps : Number
+	Variable : ProgressCounter : Number
+
+	05 : Set : NumberofSteps : $$NumItems:ListofAutoSettingPurchaseVoucherType
+	09 : Start Progress : ##NumberofSteps : "Auto Setting" : "Creating VoucherType"
+	10 : Walk Collection : List of AutoSetting Purchase VoucherType
+	11 : If: $$IsEmpty:($Name:Vouchertype:$Name)
+	20 : New Object : VoucherType
+	30 : Set Value : Name : $Name
+	40 : Set Value : Parent : $Parent
+	41 : Set Value : NumberingMethod:$NumberingMethod  
+	42 : Set Value : IsOptional : $IsOptional
+	43 : Set Value : CommonNarration:$CommonNarration
+	44 : Set Value : PreventDuplicates  : Yes
+	45 : Create Target 
+	46 : Incr : ProgressCounter
+	47 : Show Progress : ##ProgressCounter
+	48 : End IF
+	50 : End Walk
+	55 : End Progress
+;	60 : Log : "VoucherTypes Created"
+
+
+
+
+[Collection : List of AutoSetting Purchase VoucherType]
+
+		Object : GSTPurchase,GSTDebitNote1,GSTSales, GSTCreditNote1;,ReceiptImport,PaymentImport,JournalImport,ContraImport
+
+[Object : GSTPurchase]
+	
+	Name             : "ERPNext-Purchase"
+	Parent           : "Purchase"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+	
+[Object : GSTDebitNote1]
+	
+	Name             : "ERPNext-Debit Note"
+	Parent           : "Debit Note"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+
+[Object : GSTSales]
+	
+	Name             : "ERPNext-Sales"
+	Parent           : "Sales"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+
+[Object : GSTCreditNote1]
+	
+	Name             : "ERPNext-Credit Note"
+	Parent           : "Credit Note"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+
+[Object : ReceiptImport]
+	
+	Name             : "Receipt-Import"
+	Parent           : "Receipt"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+
+[Object : PaymentImport]
+	
+	Name             : "Payment-Import"
+	Parent           : "Payment"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+	
+[Object : JournalImport]
+	
+	Name             : "Journal-Import"
+	Parent           : "Journal"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+
+[Object : ContraImport]
+	
+	Name             : "Contra-Import"
+	Parent           : "Contra"
+	Numbering Method : "Manual"
+	CommonNarration  : "Yes"
+
+
+
+[Function : LedgerSetup]
+	
+	Variable : NumberofSteps : Number
+	Variable : ProgressCounter : Number
+
+	05 : Set : NumberofSteps : $$NumItems:ListofAutoSettingPurchaseLedgers
+	09 : Start Progress : ##NumberofSteps : "Auto Setting" : "Creating Ledgers"
+	10 : Walk Collection : List of AutoSetting Purchase Ledgers
+	11 : If: $$IsEmpty:($Name:Ledger:$Name)
+	20 : New Object : Ledger
+	30 : Set Value : Name : $Name
+	40 : Set Value : Parent : $Parent
+	41 : Set Value: GSTApplicable : $IsGSTApplicable
+	41a : Set Value: GSTTypeofSupply : $GSTTypeofSupply
+	42 : Create Target 
+	45 : Incr : ProgressCounter
+	46 : Show Progress : ##ProgressCounter
+	47 : End if
+	50 : End Walk
+	55 : End Progress
+;	60 : Log : "Ledgers Created"
+
+
+
+[Collection : List of AutoSetting Purchase Ledgers]
+		
+		Object : GSTPurchaseLed,GSTSalesLed,GSTRoundoffLed,GSTTransportingandFreight,SuspenseLed, BankLed;,GSTCentralTax,GSTStateTax,GST
+
+
+[Object : GSTPurchaseLed]
+	
+	Name : "GST Purchase"
+	Parent : "Purchase Accounts"
+	IsGSTApplicable : $$SysName:Applicable
+	GSTTypeofSupply : "Goods"
+	
+[Object : GSTSalesLed]
+	
+	Name : " GST Sales"
+	Parent : "Sales Accounts"
+	IsGSTApplicable : $$SysName:Applicable
+	GSTTypeofSupply : "Goods"
+	
+[Object : GSTRoundOffLed]
+	
+	Name : "Round Off"
+	Parent : "Indirect Expenses"
+	IsGSTApplicable : $$SysName:NotApplicable
+	GSTTypeofSupply : $$SysName:Undefined
+	
+[Object: GSTTransportingandFreight]
+	
+	Name : "Transporting and Freight"
+	Parent : "Indirect Expenses"
+	IsGSTApplicable : $$SysName:NotApplicable
+	GSTTypeofSupply : $$SysName:Undefined
+
+[Object: SuspenseLed]
+	
+	Name : "Suspense"
+	Parent : "Suspense A/c"
+	IsGSTApplicable : $$SysName:NotApplicable
+	GSTTypeofSupply : $$SysName:Undefined
+	
+[Object: BankLed]
+	
+	Name : "BANK"
+	Parent : "Bank Accounts"
+	IsGSTApplicable : $$SysName:NotApplicable
+	GSTTypeofSupply : $$SysName:Undefined
+
+
+[Function : TaxLedgerSetup]
+	
+	Variable : NumberofSteps : Number
+	Variable : ProgressCounter : Number
+
+	05 : Set : NumberofSteps : $$NumItems:ListofAutoSettingDutiesLedgers
+	09 : Start Progress : ##NumberofSteps : "Auto Setting" : "Creating Duty Ledgers"
+	10 : Walk Collection : ListofAutoSettingDutiesLedgers
+	12 : If: $$IsEmpty:($Name:Ledger:$Name)
+	20 : New Object : Ledger
+	30 : Set Value : Name : $Name
+	40 : Set Value : Parent : $Parent
+	41 : Set Value: Tax Type: $TaxType
+	41a : Set Value: GSTDutyHead : $GSTDutyHead
+	42 : Create Target 
+	45 : Incr : ProgressCounter
+	46 : Show Progress : ##ProgressCounter
+	48 : End If
+	50 : End Walk
+	55 : End Progress
+;	60 : Log : "Ledgers Created"
+
+
+
+[Collection : List of AutoSetting Duties Ledgers]
+		
+		Object : GSTCentralTax,GSTStateTax,GSTIntegrated,GSTCess,GSTTcsOnSales,GSTTcsonPurchase
+
+
+[Object : GSTCentralTax]
+	
+	Name : "CGST"
+	Parent : "Duties & Taxes"
+	TaxType : "GST"
+	GSTDutyHead : "Central Tax"
+
+[Object : GSTStateTax]
+	
+	Name : "SGST"
+	Parent : "Duties & Taxes"
+	TaxType : "GST"
+	GSTDutyHead : "State Tax"
+
+[Object : GSTIntegrated]
+	
+	Name : "IGST"
+	Parent : "Duties & Taxes"
+	TaxType : "GST"
+	GSTDutyHead : "Integrated Tax"
+	
+
+[Object: GSTCess]
+	
+	Name : "Cess"
+	Parent : "Duties & Taxes"
+	TaxType : "GST"
+	GSTDutyHead : "Cess"
+
+[Object: GSTTcsOnSales]
+	
+	Name : "TCS On Sales"
+	Parent : "Duties & Taxes"
+	TaxType : "Others"
+	GSTDutyHead : ""
+
+[Object: GSTTcsonPurchase]
+	
+	Name : "TCS on Purchase"
+	Parent : "Duties & Taxes"
+	TaxType : "Others"
+	GSTDutyHead : ""
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[Function : GroupSetup]
+	
+	Variable : NumberofSteps : Number
+	Variable : ProgressCounter : Number
+
+	05 : Set : NumberofSteps : $$NumItems:ListofAutoSettingGroup
+	09 : Start Progress : ##NumberofSteps : "Auto Setting" : "Creating Groups"
+	10 : Walk Collection : List of AutoSetting Group
+	12 : If: $$IsEmpty:($Name:Group:$Name)
+	20 : 	New Object : Group
+	30 : 	Set Value : Name : $Name
+	40 : 	Set Value : Parent : "Sundry Debtors"
+	42 : 	Create Target 
+	43 : End If
+	45 : Incr : ProgressCounter
+	46 : Show Progress : ##ProgressCounter
+	50 : End Walk
+	55 : End Progress
+;	60 : Log : "Group Created"
+
+
+
+
+[Collection : List of AutoSetting Group]
+	
+	Object :UnidentifiedGroup
+	Fetch : Parent
+
+[Object : UnidentifiedGroup]
+	
+	Name :"NEW UNIDENTIFIED LEDGERS"
+	Parent :"Sundry Debtors" 
+
+;;Gunny Bags
+
+
+[Function : CreateStockUnits]
+	
+	Variable : NumberofSteps : Number
+	Variable : ProgressCounter : Number
+
+
+	08 : If: $$IsEmpty:($Name:Unit:"U")
+	20 : New Object : Unit
+	30 : Set Value : Name : "Pcs"
+	32 : Set Value : ISSIMPLEUNIT : Yes
+	33 : Set Value : DECIMALPLACES : 0
+	42 : Create Target 
+;	43 : Log : "Units are Created"
+	45 : End If
+
+;[Function : CreateStockITems]
+;	
+;	Variable : NumberofSteps : Number
+;	Variable : ProgressCounter : Number
+;
+;	05 : Set : NumberofSteps : $$NumItems:ListofAutoSettingStockItems
+;	09 : Start Progress : ##NumberofSteps : "Auto Setting" : "Creating StockItems"
+;	10 : Walk Collection : List of AutoSetting StockItems
+;	20 : New Object : StockItem
+;	30 : Set Value : Name : $Name
+;	40 : Set Value : BaseUnits : $unit
+;	42 : Create Target 
+;	45 : Incr : ProgressCounter
+;	46 : Show Progress : ##ProgressCounter
+;	50 : End Walk
+;	55 : End Progress
+;	60 : Log : "Stock Items Created"
+;
+;
+;
+;[Collection : List of AutoSetting StockItems]
+;	
+;	Object :GunnyBags
+;	Fetch : Name,Unit
+;	
+;[Object : GunnyBags ]
+;	
+;	Name :"Gunny Bags"
+;	Unit :"nos" 
+;
+;
+;	

@@ -1,0 +1,558 @@
+;;Shivgoraksh
+
+[Variable: SaleLV]
+	
+	Type: String
+
+[#Menu: ExpressIntegrationExp]
+	
+	Add: Item: ERPNextSale  : Call: ERPNextSale
+	
+	[Function: ERPNextSale]
+		
+		List Variable: SaleLV
+
+		12 : Delete File: "STSale.xml"
+		13 : Open File: "STSale.xml" : Text : Write
+		14 : Truncate File
+
+		16 : Walk Collection: ERPNextSaleColl
+		18 : Call: SaleXML
+		152 : List Add: SaleLV : $name : $name		
+		155 : End Walk
+
+		200 : Close Target File
+		210 : SET : IMPORT File : "STSale.xml" 	
+		220 : Import : Vouchers : Yes
+
+		230 : If : Not $$ImportInfo:Errors > 0		
+		240 : 	Call : UpdateSaleStatus:($$NumItems:SaleLVColl)
+		242 : else
+		245 : Msg Box: "Error" : "Something Went Wrong, Please contact support"
+		250 : End If
+
+		
+[Collection: ERPNextSaleColl]
+	
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source		: HTTP JSON : @@ERPNextHost + '/api/method/express_tally.send_tally.sales'
+
+	RemoteRequest	: SaleReq : UTF8
+	JSON Object 	: ERPNextSale
+	JSON Object Path: "message:1"
+
+	[Object: ERPNextSale]
+		
+		Storage : name 					: String
+		Storage : customer				: String
+		Storage : customer_name			: String
+		Storage : posting_date  		: String
+		Storage : base_rounded_total 	: Number
+		Storage : rounding_adjustment 	: Number
+		Storage : is_return 			: Number
+		Storage : amended_from			: String
+		Storage : docstatus 			: String
+		Storage : supplier_name_in_tally : String
+		collection : tsalesinvoice 	: tsalesinvoice
+		
+		[Object: tsalesinvoice]
+			
+			Collection: items : items
+			Collection: taxes : taxes
+			Collection: payments : payments
+			Storage: naming_series : String
+			Storage: discount_amount: Number
+			
+			Storage :customer			: String
+			Storage: customer_name 		: String
+			Storage: billing_address_gstin  		: String
+			Storage: place_of_supply		: String
+			Storage: address_display		: String
+			Storage: nocd	: Logical
+			Storage: etpl_product_group : String
+			Storage: tax_category			: String
+			Storage: shipping_address 	: String
+			
+			Storage: transporter : String
+			Storage: lr_no : String
+			Storage: lr_date : String
+			Storage: etpl_package : String
+			Storage: etpl_pkguom : String
+			Storage: etpl_ordexecutedby : String
+			Storage: nocd : String
+			Storage: etpl_product_group : String
+			Storage: remarks : String
+			Storage: etpl_checkedby : String
+			Storage: etpl_arrangedby : String
+			Storage: etpl_ordnotedby : String
+			Storage: po_no : String
+			Storage: po_date : String
+			
+			Storage: contact_display : String
+			Storage: contact_email	: String
+			Storage: contact_mobile : String
+			
+			Storage: etpl_customer_group : String
+			Storage: etpl_city 		: String
+			Storage: etpl_tehsil 	: String
+			Storage: etpl_district 	: String
+			Storage: etpl_pan 		: String
+			
+			Storage: etpl_dob		: String
+			Storage: etpl_dom		: String
+			Storage: etpl_pincode	: String
+			Storage : supplier_name_in_tally : String
+			Storage: is_pos : String
+
+		[Object : payments]
+			
+			Storage: account : String
+;; Request Report 
+
+	[Report: SaleReq]
+		
+		Form: SaleReq
+		
+		[Form: SaleReq]
+			
+			Part: SaleReq
+			Delete: XMLTag
+
+			[Part: SaleReq]
+					
+				Line: SaleReq
+				Scroll: Vertical
+
+				[Line: SaleReq]
+					
+					Field: SaleReqBranch, SaleReqSyncFrom
+					;XMLTag: "request"
+					
+				[Field: SaleReqBranch]
+					
+					XMLTag: "company"
+					Set as: @@ERPNextBranch
+					
+				[Field: SaleReqSyncFrom]
+					
+					XMLTag: "date"
+					Set as: "2021-04-01" ; @@ERPNextLastSyncOn
+					
+;; End of Request Report
+
+
+
+;; Master Success 
+
+[Function: UpdateSaleStatus]
+	
+	Parameter: processedIds : Number
+
+	08 : If: ##processedIds > 0 
+	10 : Walk Collection: UpdateSaleColl
+	20 : End Walk
+	30 : End If
+	40 : Delete File: "STSale.xml"
+
+
+
+
+[Collection: UpdateSaleColl]
+	
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source	 : HTTP JSON: @@ERPNextHost + '/api/method/express_tally.send_tally.customer_update'
+	RemoteRequest : UpdateSaleRep : UTF8
+
+;; Status Report 
+
+[Report: UpdateSaleRep]
+	
+	Form: UpdateSaleRep
+	
+	[Form: UpdateSaleRep]
+		
+		Part: UpdateSaleRep
+		Delete: XMLTag
+
+	[Part: UpdateSaleRep]
+		
+		Line: UpdateSaleRep
+		Scroll: Vertical
+		
+	[Line: UpdateSaleRep]
+		
+		Field: UpdateSaleRep
+		Explode: UpdateSaleRepExp
+		
+			[Part: UpdateSaleRepExp]
+				
+				Line: UpdateSaleRepExp
+				Repeat: UpdateSaleRepExp : SaleLVColl
+				
+				[Line: UpdateSaleRepExp]
+					
+					Field: UpdateSaleRepExp
+					JSONTag: "data"
+					
+					[Field:UpdateSaleRepExp]
+						
+						Set as: $SaleLV
+						XMLTag: "docname"
+		
+		[Field: UpdateSaleRep]
+			
+			Set as: "Sales Invoice"
+			JSONTag: "request_type"
+	
+	[Collection: SaleLVColl]
+		
+		Data Source: Variable: SaleLV 
+
+
+
+;;;; +
+
+[System: Formula]
+	
+	ETSalesKey : If $$IsEmpty:$amended_from  or $amended_from = "null"  then $Name else "AMD"+$Name
+
+[Function: SaleXML]
+	
+Variable: is_return : Number: $$Number:$is_return
+Variable: GSTRate : Number
+Variable: Irn : String
+Variable: vCustomerAccount : String : $$Trim:@@PICustomer_Name; + " - " + @@EnableERPNextCmpAbbr
+Variable: vPostingDate : String: $$GetTallyDate:$posting_date
+
+Variable: NoCD : String: if $tsalesinvoice[1].nocd then " NoCD" else ""
+Variable: ETPLGroup : String: if $$IsEmpty:$tsalesinvoice[1].etpl_product_group then "" else " " + $tsalesinvoice[1].etpl_product_group
+
+Variable: SalesLed : String
+
+07 : Walk Collection: tsalesinvoice
+08 :	Do If: ($$IsEmpty:($NAme:Ledger:$customer_name)) :  Call: CreateCustomer:@@PICustomer_Name:$etpl_customer_group:@@billing_address_gstin:@@address_display:@@place_of_supply:$contact_display:$contact_email:$contact_mobile:$etpl_city:$etpl_tehsil:$etpl_district:$etpl_pan:$etpl_dob:$etpl_dom:$etpl_pincode
+09 : End Walk
+
+10	:	Write File Line : 	'	    <TALLYMESSAGE xmlns:UDF="TallyUDF">'
+20	:	Write File Line : 	'	     <VOUCHER REMOTEID="'+@@ETSalesKey+'" VCHTYPE="'+@@SIVoucherType+'" ACTION="'+@@SIAction+'" OBJVIEW="Accounting Voucher View">'
+
+21  :   Write File Line : 	'	      <BASICBUYERADDRESS.LIST TYPE="String">'
+22  :   Write File Line : 	'	       <BASICBUYERADDRESS>'+@@SIShippingAddr1+'</BASICBUYERADDRESS>'
+23  :   Write File Line : 	'	       <BASICBUYERADDRESS>'+@@SIShippingAddr2+'</BASICBUYERADDRESS>'
+24  :   Write File Line : 	'	       <BASICBUYERADDRESS>'+@@SIShippingAddr3+'</BASICBUYERADDRESS>'
+25  :   Write File Line : 	'	      </BASICBUYERADDRESS.LIST>'
+
+30	:	Write File Line : 	'	      <ADDRESS.LIST TYPE="String">'
+40	:	Do If: Not ($$IsEmpty:$_address1:Ledger:##vCustomerAccount) : Write File Line : 	'	       <ADDRESS>'+$$Trim:($_address1:Ledger:##vCustomerAccount)+'</ADDRESS>'
+50	:	Do If: Not ($$IsEmpty:$_address2:Ledger:##vCustomerAccount) : Write File Line : 	'	       <ADDRESS>'+$$Trim:($_address2:Ledger:##vCustomerAccount)+'</ADDRESS>'
+60	:	Do If: Not ($$IsEmpty:$_address3:Ledger:##vCustomerAccount) : Write File Line : 	'	       <ADDRESS>'+$$Trim:($_address3:Ledger:##vCustomerAccount)+'</ADDRESS>'
+62	:	Do If: Not ($$IsEmpty:$_address4:Ledger:##vCustomerAccount) : Write File Line : 	'	       <ADDRESS>'+$$Trim:($_address4:Ledger:##vCustomerAccount)+'</ADDRESS>'
+70	:	Write File Line : 	'	      </ADDRESS.LIST>'
+80	:	Write File Line : 	'	      <DATE>'+$$GetTallyDate:$posting_date+'</DATE>'
+90	:	Write File Line : 	'	      <GSTREGISTRATIONTYPE>'+$GSTREGISTRATIONTYPE:Ledger:##vCustomerAccount+'</GSTREGISTRATIONTYPE>'
+100	:	Write File Line : 	'	      <STATENAME>'+$LedStateName:Ledger:##vCustomerAccount+'</STATENAME>'
+110	:	Write File Line : 	'	      <COUNTRYOFRESIDENCE>'+$CountryName:Ledger:##vCustomerAccount+'</COUNTRYOFRESIDENCE>'
+120	:	Write File Line : 	'	      <PARTYGSTIN>'+$PartyGstin:Ledger:##vCustomerAccount+'</PARTYGSTIN>'
+130	:	Write File Line : 	'	      <PLACEOFSUPPLY>'+$LedStateName:Ledger:##vCustomerAccount+'</PLACEOFSUPPLY>'
+140	:	Write File Line : 	'	      <PARTYNAME>'+$$Trim:$customer_name+'</PARTYNAME>'
+150	:	Write File Line : 	'	      <PARTYLEDGERNAME>'+$$Trim:$customer_name+'</PARTYLEDGERNAME>'
+160	:	Write File Line : 	'	      <VOUCHERTYPENAME>'+@@SIVoucherType+'</VOUCHERTYPENAME>'
+170	:	Write File Line : 	'	      <PARTYMAILINGNAME>'+$$Trim:$customer_name+'</PARTYMAILINGNAME>'
+180	:	Write File Line : 	'	      <CONSIGNEEMAILINGNAME>'+$$Trim:$customer_name+'</CONSIGNEEMAILINGNAME>'
+190	:	Write File Line : 	'	      <CONSIGNEESTATENAME>'+$LedStateName:Ledger:##vCustomerAccount+'</CONSIGNEESTATENAME>'
+200	:	Write File Line : 	'	      <VOUCHERNUMBER>'+$name+'</VOUCHERNUMBER>'
+210	:	Write File Line : 	'	      <BASICBASEPARTYNAME>'+$$Trim:$customer_name+'</BASICBASEPARTYNAME>'
+220	:	Write File Line : 	'	      <FBTPAYMENTTYPE>Default</FBTPAYMENTTYPE>'
+230	:	Write File Line : 	'	      <PERSISTEDVIEW>Accounting Voucher View</PERSISTEDVIEW>'
+240	:	Write File Line : 	'	      <BASICBUYERNAME>'+@@CmpMailName+'</BASICBUYERNAME>'
+250	:	Write File Line : 	'	      <CONSIGNEECOUNTRYNAME>'+$CountryName:Company:##SVCurrentCompany+'</CONSIGNEECOUNTRYNAME>'
+260	:	Write File Line : 	'	      <VCHENTRYMODE>Item Invoice</VCHENTRYMODE>'
+261	:	Write File Line : 	'	      <EFFECTIVEDATE>'+$$GetTallyDate:$posting_date+'</EFFECTIVEDATE>'
+262	:	Write File Line : 	'	      <ISINVOICE>YES</ISINVOICE>'
+263	:	Write File Line : 	'	      <ISVATDUTYPAID>Yes</ISVATDUTYPAID>'
+;263a : Log: "1 " +  ##vCustomerAccount
+263b : Set: vCustomerAccount : $$GetPosCashLedger:##vCustomerAccount
+264	:	Write File Line : 	'	      <ALLLEDGERENTRIES.LIST>'
+265	:	Write File Line : 	'	       <LEDGERNAME>'+##vCustomerAccount+'</LEDGERNAME>'
+266	:	Write File Line : 	'	       <ISDEEMEDPOSITIVE>'+@@SIDeemedPosNo+'</ISDEEMEDPOSITIVE>'
+267	:	Write File Line : 	'	       <ISPARTYLEDGER>Yes</ISPARTYLEDGER>'
+268	:	Write File Line : 	'	       <ISLASTDEEMEDPOSITIVE>'+@@SIDeemedPosNo+'</ISLASTDEEMEDPOSITIVE>'
+269	:	Write File Line : 	'	       <AMOUNT>'+@@SIPartyAmount+'</AMOUNT>'
+270	:	Write File Line : 	'	       <VATEXPAMOUNT>'+@@SIPartyAmount+'</VATEXPAMOUNT>'
+271	:	Write File Line : 	'	       <BILLALLOCATIONS.LIST>'
+272	:	Write File Line : 	'	        <NAME>'+$name+ ##NoCD + ##ETPLGroup+'</NAME>'
+273	:	Write File Line : 	'	        <BILLTYPE>New Ref</BILLTYPE>'
+274	:	Write File Line : 	'	        <AMOUNT>'+@@SIPartyAmount+'</AMOUNT>'
+275	:	Write File Line : 	'	       </BILLALLOCATIONS.LIST>'
+276	:	Write File Line : 	'	      </ALLLEDGERENTRIES.LIST>'
+
+
+285 : Walk Collection: tsalesinvoice
+285a : Set: Irn : $Irn
+285b : Set: SalesLed : @@SISalesLed
+
+285c : 	Write File Line : 	'	      <IRN>'+$$String:##Irn+'</IRN>'
+
+
+286 : Walk Collection: items
+287 : Set : GSTRate : $$Number:$item_tax_template
+289 : If: $item_group != "Service Item"
+288 : Call: CreateItems:$item_name:$item_code:$item_group:$uom:$gst_hsn_code:##GSTRate:##vPostingDate
+290 : Do If: ($$IsEmpty:$Name:Godown:$warehouse and Not $$IsEmpty:$warehouse) : Call: CreateWarehouse:$warehouse
+
+291	:	Write File Line : 	'	    <ALLLEDGERENTRIES.LIST>'
+292	:	Write File Line : 	'	     <LEDGERNAME>'+##SalesLed+'</LEDGERNAME>'
+;292	:	Write File Line : 	'	     <LEDGERNAME>'+ $$Trim_Abbr:$income_account +'</LEDGERNAME>'
+293	:	Write File Line : 	'	     <ISDEEMEDPOSITIVE>'+@@SIDeemedPos+'</ISDEEMEDPOSITIVE>'
+294	:	Write File Line : 	'	     <ISLASTDEEMEDPOSITIVE>'+@@SIDeemedPos+'</ISLASTDEEMEDPOSITIVE>'
+295	:	Write File Line : 	'	     <AMOUNT>'+@@SIAmount+'</AMOUNT>'
+296	:	Write File Line : 	'	     <VATEXPAMOUNT>'+@@SIAmount+'</VATEXPAMOUNT>'
+
+300	:	Write File Line : 	'	      <INVENTORYALLOCATIONS.LIST>'
+;310	:	Write File Line : 	'	       <STOCKITEMNAME>'+$item_code+'</STOCKITEMNAME>'
+310	:	Write File Line : 	'	       <STOCKITEMNAME>'+$$Trim:$item_code+'</STOCKITEMNAME>'
+320	:	Write File Line : 	'	       <ISDEEMEDPOSITIVE>'+@@SIDeemedPos+'</ISDEEMEDPOSITIVE>'
+322	:	Write File Line : 	'	       <ISLASTDEEMEDPOSITIVE>'+@@SIDeemedPos+'</ISLASTDEEMEDPOSITIVE>'
+;340	:	Write File Line : 	'	       <RATE>'+$$String:$rate+'/'+$uom+'</RATE>'
+340 :	Write File Line : 	'	       <RATE>'+$$String:$price_list_rate+'/'+@@PIUom+'</RATE>'
+341 :	Write File Line :	'		   <DISCOUNT>'+$$String:$discount_percentage+'</DISCOUNT>'
+350	:	Write File Line : 	'	       <AMOUNT>'+@@SIAmount+'</AMOUNT>'
+360	:	Write File Line : 	'	       <ACTUALQTY> '+$$String:@@SIQty+' '+@@PIUom+'</ACTUALQTY>'
+370	:	Write File Line : 	'	       <BILLEDQTY> '+$$String:@@SIQty+' '+@@PIUom+'</BILLEDQTY>'
+380	:	Write File Line : 	'	       <BATCHALLOCATIONS.LIST>'
+390	:	Write File Line : 	'	        <GODOWNNAME>'+@@SIwarehouse+'</GODOWNNAME>'
+395	:	Write File Line : 	'	        <DESTINATIONGODOWNNAME>'+@@SIwarehouse+'</DESTINATIONGODOWNNAME>'
+400	:	Write File Line : 	'	        <BATCHNAME>'+@@SIBatchNo+'</BATCHNAME>'
+410	:	Write File Line : 	'	        <AMOUNT>'+@@SIAmount+'</AMOUNT>'
+412 :	Write File Line :	'		    <DISCOUNT>'+$$String:$discount_percentage+'</DISCOUNT>'
+420	:	Write File Line : 	'	        <ACTUALQTY> '+$$String:@@SIQty+' '+@@PIUom+'</ACTUALQTY>'
+430	:	Write File Line : 	'	        <BILLEDQTY> '+$$String:@@SIQty+' '+@@PIUom+'</BILLEDQTY>'
+440	:	Write File Line : 	'	       </BATCHALLOCATIONS.LIST>'
+490	:	Write File Line : 	'	      </INVENTORYALLOCATIONS.LIST>'
+500	:	Write File Line : 	'	     </ALLLEDGERENTRIES.LIST>'
+501 : End IF 
+502 : End Walk
+503 : End Walk
+
+611 : Call: CreateItemEntriesAsLedgerEntriesSales
+
+612 : Walk Collection: tSalesinvoice
+
+615 : If: Not $$IsEmpty:$discount_amount
+617	:	Write File Line : 	'	      <ALLLEDGERENTRIES.LIST>'
+618	:	Write File Line : 	'	       <LEDGERNAME>Extra Discount</LEDGERNAME>'
+619	:	Write File Line : 	'	       <ISPARTYLEDGER>No</ISPARTYLEDGER>'
+620	:	Write File Line : 	'	       <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>'
+621	:	Write File Line : 	'	       <AMOUNT>-'+$$String:$discount_amount+'</AMOUNT>'
+622	:	Write File Line : 	'	       <VATEXPAMOUNT>-'+$$String:$discount_amount+'</VATEXPAMOUNT>'
+623	:	Write File Line : 	'	      </ALLLEDGERENTRIES.LIST>'
+624 : End If
+
+625 : Walk Collection: taxes
+
+627 : 	Do If: ($$IsEmpty:$name:Ledger:($$Trim_abbr:$account_head)) : Call: CreateAccountHead:$account_head
+628	:	Write File Line : 	'	      <ALLLEDGERENTRIES.LIST>'
+630	:	Write File Line : 	'	       <LEDGERNAME>'+@@SIAccountHead+'</LEDGERNAME>'
+640	:	Write File Line : 	'	       <ISDEEMEDPOSITIVE>'+@@SILedEntDeemedPos+'</ISDEEMEDPOSITIVE>'
+645	:	Write File Line : 	'	       <ISPARTYLEDGER>No</ISPARTYLEDGER>'
+648	:	Write File Line : 	'	       <ISLASTDEEMEDPOSITIVE>'+@@SILedEntDeemedPos+'</ISLASTDEEMEDPOSITIVE>'
+650	:	Write File Line : 	'	       <AMOUNT>'+@@SILedEntTaxAMount+'</AMOUNT>'
+660	:	Write File Line : 	'	       <VATEXPAMOUNT>'+@@SILedEntTaxAMount+'</VATEXPAMOUNT>'
+670	:	Write File Line : 	'	      </ALLLEDGERENTRIES.LIST>'
+
+675 : End Walk
+685 : End Walk
+
+735 : If: Not $$IsEmpty:@@SIRoundAmount
+740	:	Write File Line : 	'	      <ALLLEDGERENTRIES.LIST>'
+750	:	Write File Line : 	'	       <LEDGERNAME>Rounded Off</LEDGERNAME>'
+755	:	Write File Line : 	'	       <ISPARTYLEDGER>No</ISPARTYLEDGER>'
+760	:	Write File Line : 	'	       <ISDEEMEDPOSITIVE>'+$$String:@@SIRoundDeemed+'</ISDEEMEDPOSITIVE>'
+770	:	Write File Line : 	'	       <AMOUNT>'+$$String:@@SIRoundAmount+'</AMOUNT>'
+780	:	Write File Line : 	'	       <VATEXPAMOUNT>'+$$String:@@SIRoundAmount+'</VATEXPAMOUNT>'
+790	:	Write File Line : 	'	      </ALLLEDGERENTRIES.LIST>'
+795 : End If
+
+791a: Walk Collection: tSalesinvoice
+791b:	Write File Line : 	'	      <BASICSHIPPEDBY>'+$$Trim:$transporter+'</BASICSHIPPEDBY>'
+791c:	Write File Line : 	'	      <BILLOFLADINGNO>'+$$Trim:$lr_no+'</BILLOFLADINGNO>'
+791d:	Write File Line : 	'	      <BILLOFLADINGDATE>'+$$GetTallyDate:$lr_date+'</BILLOFLADINGDATE>'
+791e:	Write File Line : 	'	      <NARRATION>'+$$trim:$remarks+'</NARRATION>'
+791f:	Write File Line : 	'	      <BASICORDERREF>'+$$trim:$po_no+'</BASICORDERREF>'
+
+792a	:	Write File Line : 	'	      <UDF:BILTYPACKAGES.LIST DESC="`BiltyPackages`" ISLIST="YES" TYPE="Number" INDEX="193">'
+792b	:	Write File Line : 	'	       <UDF:BILTYPACKAGES DESC="`BiltyPackages`">'+ $etpl_package +'</UDF:BILTYPACKAGES>'
+792c	:	Write File Line : 	'	      </UDF:BILTYPACKAGES.LIST>'
+
+792e	:	Write File Line : 	'	      <UDF:EPNONEP.LIST DESC="`EPNonEP`" ISLIST="YES" TYPE="String" INDEX="301">'
+792f	:	Write File Line : 	'	       <UDF:EPNONEP DESC="`EPNonEP`">'+ $etpl_product_group+'</UDF:EPNONEP>'
+792g	:	Write File Line : 	'	      </UDF:EPNONEP.LIST>'
+
+792i	:	Write File Line : 	'	      <UDF:BILTYPACKAGEUNIT.LIST DESC="`BiltyPackageUnit`" ISLIST="YES" TYPE="String" INDEX="194">'
+792j	:	Write File Line : 	'	       <UDF:BILTYPACKAGEUNIT DESC="`BiltyPackageUnit`">'+ $etpl_pkguom +'</UDF:BILTYPACKAGEUNIT>'
+792k	:	Write File Line : 	'	      </UDF:BILTYPACKAGEUNIT.LIST>'
+
+792l	:	Write File Line : 	'	      <UDF:SALESMAN.LIST DESC="`salesman`" ISLIST="YES" TYPE="String" INDEX="100">'
+792m	:	Write File Line : 	'	       <UDF:SALESMAN DESC="`salesman`">'+ $etpl_checkedby +'</UDF:SALESMAN>'
+792n	:	Write File Line : 	'	      </UDF:SALESMAN.LIST>'
+
+792p	:	Write File Line : 	'	      <UDF:ARRANGEBY.LIST DESC="`arrangeby`" ISLIST="YES" TYPE="String" INDEX="101">'
+792q	:	Write File Line : 	'	       <UDF:ARRANGEBY DESC="`arrangeby`">'+ $etpl_arrangedby+'</UDF:ARRANGEBY>'
+792r	:	Write File Line : 	'	      </UDF:ARRANGEBY.LIST>'
+
+792t	:	Write File Line : 	'	      <UDF:ORDERNOTEDBY.LIST DESC="`OrderNotedby`" ISLIST="YES" TYPE="String" INDEX="102">'
+792u	:	Write File Line : 	'	       <UDF:ORDERNOTEDBY DESC="`OrderNotedby`">'+ $etpl_ordnotedby +'</UDF:ORDERNOTEDBY>'
+792v	:	Write File Line : 	'	      </UDF:ORDERNOTEDBY.LIST>'
+
+793a	:	Write File Line : 	'	      <UDF:EISALESMANNM.LIST DESC="`EISalesmanNm`" ISLIST="YES" TYPE="String" INDEX="2007">'
+793b	:	Write File Line : 	'	       <UDF:EISALESMANNM DESC="`EISalesmanNm`">'+ $etpl_ordexecutedby +'</UDF:EISALESMANNM>'
+793c	:	Write File Line : 	'	      </UDF:EISALESMANNM.LIST>'
+
+793d	:	Write File Line : 	'	      <UDF:NOCDORDER.LIST DESC="`NoCDOrder`" ISLIST="YES" TYPE="String" INDEX="1013">'
+793e	:	Write File Line : 	'	       <UDF:NOCDORDER DESC="`NoCDOrder`">'+ @@nocd +'</UDF:NOCDORDER>'
+793f	:	Write File Line : 	'	      </UDF:NOCDORDER.LIST>'
+
+799 : End Walk
+
+800	:	Write File Line : 	'      <UDF:WEBSTATUS.LIST DESC="`WebStatus`" ISLIST="YES" TYPE="String" INDEX="31588">'
+805	:	Write File Line : 	'       <UDF:WEBSTATUS DESC="`WebStatus`">1</UDF:WEBSTATUS>'
+810	:	Write File Line : 	'      </UDF:WEBSTATUS.LIST>'
+
+812	:	Write File Line : 	'      <UDF:WEBSTATUS_MESSAGE.LIST DESC="`WebStatus_message``EnableERPNextKey`" ISLIST="YES" TYPE="String" INDEX="31589">'
+815	:	Write File Line : 	'       <UDF:WEBSTATUS_MESSAGE DESC="`WebStatus_message``EnableERPNextKey`">Success</UDF:WEBSTATUS_MESSAGE>'
+818	:	Write File Line : 	'      </UDF:WEBSTATUS_MESSAGE.LIST>'
+
+820	:	Write File Line : 	'      <UDF:ENABLEERPNEXTSECRET.LIST DESC="`EnableERPNextSecret``WebStatus_DocName`" ISLIST="YES" TYPE="String" INDEX="31590">'
+822	:	Write File Line : 	'       <UDF:ENABLEERPNEXTSECRET DESC="`EnableERPNextSecret``WebStatus_DocName`">'+$Name+'</UDF:ENABLEERPNEXTSECRET>'
+824	:	Write File Line : 	'      </UDF:ENABLEERPNEXTSECRET.LIST>'
+
+900	:	Write File Line : 	'	     </VOUCHER>'
+910	:	Write File Line : 	'	    </TALLYMESSAGE>'
+
+
+[Function: GetIGSTRate]
+	
+	Variable: GSTRate1 : Number
+
+	10 : Walk Collection: taxes
+	20 : 	Set: GSTRate1 :  ##GSTRate1 + $rate
+	30 : End Walk
+	40 : Return: ##GSTRate1
+	
+[Function: GetPosCashLedger]
+	
+	Parameter: vCustomerName : String
+	Variable : vPosCashLedger : String: ##vCustomerName
+
+	10 : Walk Collection: tsalesinvoice
+	11 : Log: "is_pos " + $is_pos
+	12 : If: $$String:$is_pos = "1"
+	20 : 	Walk Collection: payments
+	22 : 		Log: $account
+	30 : 		Set: vPosCashLedger : $$trim_abbr:$account
+	40 : 	End Walk
+	45 : End If 
+	50 : End Walk
+	60 : Return: ##vPosCashLedger
+	
+	
+
+[Function: CreateItemEntriesAsLedgerEntriesSales]
+	
+	08 : Walk Collection: tsalesinvoice
+	10 : Walk Collection: items
+	12 : If: $item_group = "Service Item"
+	20	:	Write File Line : 	'	      <LEDGERENTRIES.LIST>'
+	30	:	Write File Line : 	'	       <LEDGERNAME>'+@@SIItemAsLedgerAccountHead+'</LEDGERNAME>'
+	40	:	Write File Line : 	'	       <ISDEEMEDPOSITIVE>'+@@SIDeemedPos+'</ISDEEMEDPOSITIVE>'
+	50	:	Write File Line : 	'	       <AMOUNT>'+@@SIItemAsLedgerAMount+'</AMOUNT>'
+	60	:	Write File Line : 	'	       <VATEXPAMOUNT>'+@@SIItemAsLedgerAMount+'</VATEXPAMOUNT>'
+	70	:	Write File Line : 	'	      </LEDGERENTRIES.LIST>'
+	75 : End If
+	80 : End Walk
+	90 : End Walk
+
+[System : Formula]
+	
+	SIItemAsLedgerAccountHead   : $$Trim_abbr:$item_name
+	SIItemAsLedgerAMountABS 	: if $$Number:$amount < 0 then $$Number:$amount * -1 else $$Number:$amount
+	SIItemAsLedgerAMount 		: if ##is_return = 0 then $$String:@@SIItemAsLedgerAMountABS else  "-"+ $$String:@@SIItemAsLedgerAMountABS
+
+[System : Formula]
+
+	SIVoucherType 	: $$GetVchTypeByNaming:@@GEOSaleSeries ; if ##is_return = 0 then @@GEOSaleVchType else $$GEOCreditNoteVchType:@@GEOSaleSeries
+	GEOSaleSeries	: $tSalesinvoice[1].naming_series
+	SIAction		: if $docstatus = "2" then "Cancel" else "Create"
+
+	SIDeemedPos 	: if ##is_return = 0 then "No" else "Yes"
+	SIDeemedPosNo	: if ##is_return = 0 then "Yes" else "No"
+	SIAmount		: if ##is_return = 0 then $$String:@@SIAbsAmount else '-'+$$String:@@SIAbsAmount
+	SIPartyAmount	: if ##is_return = 0 then '-'+$$String:@@SIAbsPartyAmount else $$String:@@SIAbsPartyAmount
+	SITaxAmount		: if ##is_return = 0 then $$String:@@SIAbsTaxAMount else '-'+$$String:@@SIAbsTaxAMount
+
+;	SIRoundAmount	: If ##is_return = 0 then if $$Number:$rounding_adjustment < 0 then "-"+$$String:@@SIAbsRoundAmount else +$$String:@@SIAbsRoundAmount else if $rounding_adjustment < 0 then $$String:@@SIAbsRoundAmount else "-"+$$String:@@SIAbsRoundAmount
+;	SIRoundDeemed	: If ##is_return = 0 then if $$Number:$rounding_adjustment < 0 then "No" else "No" else if $rounding_adjustment < 0 then "No" else "No"
+
+	SIRoundAmount	: if $rounding_adjustment > 0 then $$String:@@SIAbsRoundAmount else "-" +$$String:@@SIAbsRoundAmount
+	
+;	If ##is_return = 0 +
+;							then If $$Number:$rounding_adjustment < 0 then "-"+$$String:@@SIAbsRoundAmount else +$$String:@@SIAbsRoundAmount +
+;						else if $$Number:$rounding_adjustment < 0 then "-"+$$String:@@SIAbsRoundAmount else $$String:@@SIAbsRoundAmount
+
+	SIRoundDeemed	: if ##is_return = 0 then "No" else "Yes"
+	
+;	If ##is_return = 0 +
+;							then If $$Number:$rounding_adjustment < 0 then "Yes" else "No"+
+;						else if $$Number:$rounding_adjustment < 0 then "Yes" else "No"
+	
+	SIQty			: if ##is_return = 0 then $$String:@@SIAbsQty else $$String:@@SIAbsQty
+
+	SIwarehouse		: IF $$IsEmpty:$warehouse then "Main Location" else $$trim_abbr:$warehouse
+	SIBatchNo		: if $$IsEmpty:$batch_no then "Primary Batch" else $batch_no
+
+	SIAbsAmount			: if $$Number:$Amount < 0 then $$Number:$amount * -1 else $amount ; $$Abs:$amount
+	SIAbsQty			: if $$Number:$qty < 0 then $$Number:$qty * -1 else $$Number:$Qty ; $$Abs:$Qty
+	
+	SIAbsPartyAmount	: if $$Number:$base_rounded_total <0 then $$Number:$base_rounded_total * -1 else $base_rounded_total ; $$Abs:$base_rounded_total
+	SIAbsTaxAMount		: if $$Number:$base_tax_amount <0 then $$Number:$base_tax_amount * -1 else $base_tax_amount ; $$Abs:$base_tax_amount
+	SIAbsRoundAmount 	: if $$Number:$rounding_adjustment <0 then $$Number:$rounding_adjustment * -1 else $rounding_adjustment ; $$Abs:$rounding_adjustment
+
+	SILedEntDeemedPos	: if ##is_return = 0 then if $base_tax_amount < 0 then "Yes" else "No" else if $base_tax_amount < 0 then "Yes" else "No"
+	SILedEntTaxAMount	: if ##is_return = 0 then if $base_tax_amount < 0 then "-"+$$String:@@SIAbsTaxAMount else $$String:@@SIAbsTaxAMount  else if $base_tax_amount < 0 then '-'+$$String:@@SIAbsTaxAMount else $$String:@@SIAbsTaxAMount
+	
+	SIAccountHead : $$Trim_abbr:$account_head
+
+	SISalesLed	: $$Trim_abbr:$income_account
+	
+	billing_address_gstin 	: if $$IsEmpty:$billing_address_gstin then "" else $billing_address_gstin
+	supplier_gstin			: if $$IsEmpty:$supplier_gstin then "" else $supplier_gstin
+	address_display			: if $$IsEmpty:$address_display then "" else $address_display
+	place_of_supply 		: if $$IsEmpty:$place_of_supply then "" else $place_of_supply
+
+	SIShippingAddr1 : if $$IsEmpty:@@SIShippingAddr then "" else $$Trim_Address:($$StringWordEx:@@SIShippingAddr:"<br>":1)
+	SIShippingAddr2 : if $$IsEmpty:@@SIShippingAddr then "" else $$Trim_Address:($$StringWordEx:@@SIShippingAddr:"<br>":2)
+	SIShippingAddr3 : if $$IsEmpty:@@SIShippingAddr then "" else $$Trim_Address:($$StringWordEx:@@SIShippingAddr:"<br>":3)
+	SIShippingAddr : $tsalesinvoice[1].shipping_address
+
+	nocd : if $nocd = 0 then "No" else "Yes"
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Test : Call: SwtringWord
+;	
+;	[Function: SwtringWord]
+;		
+;		Variable: Sentense : String: "ABC<br>XYX<br>UXY"
+;
+;		10 : Log: $$Trim_Address:($$StringWordEx:##Sentense:"<br>":1)
+;		20 : Log: $$Trim_Address:($$StringWordEx:##Sentense:"<br>":2)
+;		30 : Log: $$Trim_Address:($$StringWordEx:##Sentense:"<br>":3)
+
+
+

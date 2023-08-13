@@ -1,0 +1,257 @@
+;;Shivgoraksh
+
+/*
+
+*/
+
+[#Form: Company Operations]
+
+	Local: Part: CMPTallyShopFeaturesLeft : Add: Line: At End: EnableERPNextImp
+	
+	[#Part: CMPTallyShopFeaturesLeft]
+		
+		Add: Line: At End: EnableERPNextImp
+
+	[Line: EnableERPNextImp]
+		
+		Field: Long Prompt, EnableERPNextImp
+		Local: Field: Long Prompt : Info: "Enable ERPNext Integration ?"
+
+		[Field: EnableERPNextImp]
+			
+			Use: Logical Field 
+			Storage: EnableERPNextImp
+			Sub Form: EnableERPNextKeys : $$Value
+
+			[Report : EnableERPNextKeys]
+				
+				Form: EnableERPNextKeys
+				
+				[Form: EnableERPNextKeys]
+					
+					Part: EnableERPNextKeys
+					Height: 40% Screen
+					Width: 60% Screen
+					
+					[Part: EnableERPNextKeys]
+						
+						Line: FormSubTitle, EnableERPNextHost, EnableERPNextKeys, EnableERPNextSecret, EnableERPNextRecords, EnableERPNextBranch, +
+							  EnableERPNextCmpAbbr, EnableERPNextLastSyncOn, EnableERPNextResetFlag
+						Local: Field: FormSubTitle : Info: "ERPNExt Api Configuration"
+						Local: Line: Default : Space Top: 0.30
+						Local: Line: Default : Space Bottom: 0.30
+						
+						[Line: EnableERPNextHost]
+
+							Field: Long Prompt, EnableERPNextHost
+							Local: Field: Long Prompt : Info: "ERPNext Host URL :"
+							
+							[Field: EnableERPNextHost]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: EnableERPNextHost
+
+						[Line: EnableERPNextKeys]
+							
+							Field: Long Prompt, EnableERPNextKeys
+							Local: Field: Long Prompt : Info: "ERPNext API Key :"
+							
+							[Field: EnableERPNextKeys]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: EnableERPNextKey
+							
+						[Line: EnableERPNextSecret]
+						
+							Field: Long Prompt, EnableERPNextSecret
+							Local: Field: Long Prompt : Info: "ERPNext API Secret:"
+							
+							[Field: EnableERPNextSecret]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: EnableERPNextSecret
+								
+						[Line: EnableERPNextRecords]
+						
+							Field: Long Prompt, EnableERPNextRecords
+							Local: Field: Long Prompt : Info: "Records Per Request :"
+							
+							[Field: EnableERPNextRecords]
+								
+								Use: Number Field
+								Storage: EnableERPNextRecords
+								Set as: 100
+			
+						[Line: EnableERPNextBranch]
+						
+							Field: Long Prompt, EnableERPNextBranch
+							Local: Field: Long Prompt : Info: "ERPNext Company Name :"
+							
+							
+							[Field: EnableERPNextBranch]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: EnableERPNextBranch
+								Sub Form: NSConfig : NOt $$IsEmpty:$$Value
+								
+						[Line: EnableERPNextCmpAbbr]
+							
+							Field: Long Prompt, EnableERPNextCmpAbbr
+							Local: Field: Long Prompt : Info: "ERPNext Company Abbr. :"
+							
+							[Field: EnableERPNextCmpAbbr]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: EnableERPNextCmpAbbr
+
+
+						[Line: EnableERPNextLastSyncOn]
+						
+							Field: Long Prompt, EnableERPNextLastSyncOn
+							Local: Field: Long Prompt : Info: "Last Sync On :"
+							Invisible: Yes
+							
+							[Field: EnableERPNextLastSyncOn]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: ERPNextLastSyncOn
+								
+						[Line: EnableERPNextResetFlag]
+						
+							Field: Long Prompt, EnableERPNextResetFlag
+							Local: Field: Long Prompt : Info: "Reset Flag :"
+							
+							[Field: EnableERPNextResetFlag]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: ERPNextResetFlag
+								Set as: "1"
+								Set Always: Yes
+
+	[System: UDf]
+		
+		EnableERPNextImp 		: Logical	: 31588
+		EnableERPNextKey 		: String	: 31589
+		EnableERPNextSecret 	: String	: 31590
+		EnableERPNextHost 		: String	: 31591
+		EnableERPNextBranch		: String	: 31592
+		ERPNextLastSyncOn		: String	: 31593
+		ERPNextResetFlag		: String	: 31594
+		EnableERPNextRecords	: Number	: 31595
+		EnableERPNextCmpAbbr 	: String	: 31596
+
+[System: Formula]
+	
+	EnableERPNextImp	: $EnableERPNextImp:Company:##SVCurrentCompany
+	ERPNextHost 		: $EnableERPNextHost:Company:##SVCurrentCompany ;"http://erp.step-tech.in"
+	ERPNextAPIKey 		: $EnableERPNextKey:Company:##SVCurrentCompany ;"bf8c0737df860af"
+	ERPNextAPISecret 	: $EnableERPNextSecret:Company:##SVCurrentCompany ;"d397c3ed47ec4b1"
+	ERPNextBranch 		: $EnableERPNextBranch:Company:##SVCurrentCompany
+	EnableERPNextCmpAbbr: $EnableERPNextCmpAbbr:Company:##SVCurrentCompany
+
+	ERPNextLastSyncOn 	: if $$IsEmpty:$ERPNextLastSyncOn:Company:##SVCurrentCompany then $$GetSqlDate:@@CmpStartDate else $ERPNextLastSyncOn:Company:##SVCurrentCompany
+	ERPNextResetFlag 	: $ERPNextResetFlag:Company:##SVCurrentCompany
+	RecordsLimit 		: $EnableERPNextRecords:Company:##SVCurrentCompany
+
+	AuthToken 			: @@ERPNextAPIKey + ":" + @@ERPNextAPISecret
+
+
+	locExpressErpNext	: "ERPNext"
+
+
+[#Menu: Display Menu]
+	
+	Add: Item : Before : @@LocQuit : @@locExpressErpNext : Menu :  ExpressIntegrationMain
+	
+	[Menu: ExpressIntegrationMain]
+		
+;		Item: Receive 	: Menu: ExpressIntegrationExp  ;;; Temporary 
+		Item: Migrate to ERPNext 	: Menu	: ExpressIntegration
+		Item: Exception 			: Alter	: ERPExcepRep
+		Item: Resetting 			: Menu 	: SyncConfig
+	
+	[Menu: ExpressIntegrationExp]
+
+	[Menu: ExpressIntegration]
+		Indent: "Accounts Masters"
+		Item: Customer Group 	: Call: SEND_CustomerGroup_Start
+		Item: Customer 			: Call: SEND_Customer_Start
+		Item: SupplierGroup 	: Call: SEND_SupplierGroup_Start
+		Item: Supplier 			: Call: SEND_Supplier_Start
+		Item: Blank
+		Indent: "Inventory Masters"
+		Item: Uom 			: Call: SEND_Uom
+		Item: Item Group	: Call: SEND_ItemGroup_Start
+		Item: Item 			: Call: SEND_Item_Start
+		Item: Warehouse		: Call: SEND_Warehouse
+
+		Item: Blank
+		Indent: "Opening Balances"
+		Item: Customer Opening : Call: SEND_CustomerOp
+		Item: Supplier Opening : Call: SEND_SupplierOp
+
+		Item: Blank
+		Indent: "Transactions"
+		Item: Sales Invoices 		: Call: SEND_SalesInvoice_Start
+		Item: Credit Notes 			: Call: SEND_CreditNoteInvoice_Start
+		Item: Purchase Invoice		: Call: SEND_PurchaseInvoice_Start
+		Item: Payment and Receipt 	: Call: SEND_PymtRcpt_Start
+		Item: Contra 				: Call: SEND_Contra_Start
+
+		Add:  Button: ExpressSyncAll
+		
+		[Button: ExpressSyncAll]
+			
+			Title: 'Sync All'
+			Key: Ctrl + Y
+	
+
+[Include: receive\01 Customer.txt]
+[Include: receive\02 Supplier.txt]
+[Include: receive\03 PurchaseInvoice.txt]
+[Include: receive\04 SaleInvoice.txt]
+[Include: receive\05 Payment.txt]
+[Include: receive\07 Stock Journal.txt]
+
+[Include: UtilityFunctions.txt]
+[Include: AutoSettings.txt]
+
+[Include: send\01_SEND_CustomerGroup.txt]
+[Include: send\02_SEND_Customer.txt]
+[Include: send\03_SEND_SupplierGroup.txt]
+[Include: send\04_SEND_Supplier.txt]
+[Include: send\05_SEND_Uom.txt]
+[Include: send\06_SEND_ItemGroup.txt]
+[Include: send\07_SEND_Item.txt]
+[Include: send\08_SEND_Warehouse.txt]
+[Include: send\Reset.txt]
+
+[Include: send\09_SEND_CustomerOpeningInvoices.txt]
+[Include: send\09_SEND_SupplierOpeningInvoices.txt]
+[Include: send\10_SEND_Sales.txt]
+[Include: send\10_SEND_CreditNote.txt]
+[Include: send\11_SEND_Purchase.txt]
+[Include: send\12_SEND_CntrJrnl.txt]
+[Include: send\13_SEND_PymtRcpt.txt]
+
+
+[Include: NamingSeries.txt]
+[Include: EXCEPTION_Reports.txt]
+
+[Include: NamingSeriesConfig.txt]
+
+[Include: ETPL.txt]
+
+
+;;[Include: Cartel.txt]
+;;[Include : PCWorld.txt]
+;
+;;[Include: E:\Other computers\My Laptop\Dropbox\Express Estimation\TallyData\TdlPrime\test.tdl]
+;

@@ -1,0 +1,261 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_Supplier]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.supplier'
+;	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.create_address'
+
+	RemoteRequest: SEND_Supplier : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item: Send Supplier : Call: SEND_Supplier
+;;	Add: Item: Send Supplier : Call: SEND_Supplier_Start
+;
+	[Function: SEND_Supplier_Start]
+		
+		10 : Start Timer: SEND_Supplier_Timer : 1
+
+	[System: Events]
+		
+		SEND_Supplier_Timer : Timer: True: Call: SEND_Supplier
+
+
+[Function: SEND_Supplier]
+
+	Variable : vName  : String
+	Variable : vMessage : String
+
+	Variable: vCounter_send : Number: 1
+	Variable: vStatus : String
+
+	06 : Do If: ($$NumItems:SEND_Supplier_Tally = 0) :  Stop Timer: SEND_Supplier_Timer
+	07 : Do If: ($$NumItems:SEND_Supplier_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_Supplier_Timer
+	09 : Start Progress: 1 : "Sending Supplier" : ""
+	
+	10 : Walk Collection: SEND_Supplier
+
+	12 : Set: vStatus : $Status
+;	20 : 	If: $Status
+	22 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Ledger, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 :			Modify Object: (Ledger, ##vName).WebStatus_message[1].WebStatus_message : ##vMessage
+	40 :		End Walk
+	45 : 	End Batch Post
+;	50 : 	End If
+	60 : End Walk
+
+;	61 : StopTimer: SEND_Supplier_Timer 
+	65 : Do If: ($$NumItems:SEND_Supplier_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_Supplier_Timer : 1
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Request - Customer: Display: SEND_Customer
+
+[Report : SEND_Supplier]
+	
+	Form: SEND_Supplier
+	
+	[Form: SEND_Supplier]
+		
+		Part: SEND_Supplier
+		Delete: XMLTag
+
+	[Part: SEND_Supplier]
+		
+		Line: SEND_Supplier
+		Repeat: SEND_Supplier : SEND_Supplier_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_Supplier]
+			
+			Field: SEND_Supplier_name, SEND_Supplier_type, SEND_Supplier_dotype, SEND_Supplier_group
+			Field: SEND_Supplier_gst_category,SEND_Supplier_pan, SEND_Supplier_territory, SEND_Supplier_tax_category			
+			Field: SEND_Supplier_default_currency;,SEND_Supplier_default_price_list
+			
+			Field: SEND_Supplier_add1, SEND_Supplier_add2,SEND_Supplier_add3,SEND_Supplier_add4
+			Field: SEND_Supplier_state_code, SEND_Supplier_state, SEND_Supplier_country, SEND_Supplier_picode, SEND_Supplier_city
+			Field: SEND_Supplier_tehsil, SEND_Supplier_Distrct, SEND_Supplier_partygsting
+			
+			Field: SEND_Supplier_ledcontact, SEND_Supplier_ledmobile
+			Field: SEND_Supplier_email, SEND_Supplier_emailcc
+
+			Field: SEND_company
+
+			JSONTag: "data"
+			Explode: SEND_Customer_accounts
+			Empty: $$Line > @@RecordsLimit
+			
+			Local: Line: SEND_Customer_accounts : Local: Field: SEND_CA_account: Set as: "Creditors" + " - " + @@EnableERPNextCmpAbbr
+			
+			[Field: SEND_Supplier_name]
+				
+				Set as: $Name
+				JSONTag: "supplier_name"
+				
+			[Field: SEND_Supplier_type]
+				
+				Set as: "Company"
+				JSONTag: "supplier_type"
+				
+			[Field: SEND_Supplier_dotype]
+				
+				Set as: "Supplier"
+				JSONTag: "doctype"
+
+			[Field: SEND_Supplier_group]
+
+				Set as: $Parent
+				JSONTag : "supplier_group"
+
+			[Field: SEND_Supplier_gst_category]
+				
+				Set as: if $GSTRegistrationType = "Regular" then "Registered Regular" else + 
+						If $GSTRegistrationType = "Composition" then "Registered Composition" else + 
+						If $GSTRegistrationType = "Consumer" then "Unregistered" else + 
+						If $GSTRegistrationType = "Unregistered" then "Unregistered" else ""
+						
+				JSONTag : "gst_category"
+
+			[Field: SEND_Supplier_pan]
+				
+				Set as: $IncomeTaxNumber
+				JSONTag : "pan"
+
+			[Field: SEND_Supplier_territory]
+				
+				Set as: "All Territories"
+				JSONTag : "territory"
+
+			[Field: SEND_Supplier_tax_category]
+				
+				Set as: If @@CMPStateName = $LedStateName then "In-State" else "Out-State"
+				JSONTag : "tax_category"
+
+			[Field: SEND_Supplier_default_currency]
+				
+				Set as: "INR"
+				JSONTag : "default_currency"
+
+			[Field: SEND_Supplier_default_price_list]
+				
+				Set as: "PUR"
+				JSONTag : "default_price_list"
+
+			[Field: SEND_Supplier_add1]
+
+				Set as: $_Address1
+				JSONTag : "address1"
+
+			[Field: SEND_Supplier_add2]
+
+				Set as: $_Address2
+				JSONTag : "address2"
+
+			[Field: SEND_Supplier_add3]
+
+				Set as: $_Address3
+				JSONTag : "address3"
+
+			[Field: SEND_Supplier_add4]
+
+				Set as: $_Address4
+				JSONTag : "address4"
+
+			[Field: SEND_Supplier_state]
+
+				Set as: $LedstateName
+				JSONTag : "state"
+
+			[Field: SEND_Supplier_state_code]
+
+				Set as: $$GetGSTStateCode:$LedstateName
+				JSONTag : "state_code"
+
+			[Field: SEND_Supplier_country]
+
+				Set as: $CountryName
+				JSONTag : "country"
+
+			[Field: SEND_Supplier_picode]
+
+				Set as: $PinCode
+				JSONTag : "pincode"
+
+			[Field: SEND_Supplier_city]
+
+				Set as: $$GetSupplierCity
+				JSONTag : "city"
+
+					[Function: GetSupplierCity]
+						
+						10 : Do if : (NOt $$IsEmpty:$LEDCity) 		: Return : $LEDCity
+						20 : Do if : (Not $$IsEmpty:$_Address4)		: Return : $_Address4
+						30 : Do if : (Not $$IsEmpty:$_Address3) 	: Return : $_Address3
+						40 : DO if : (Not $$IsEmpty:$_Address2)		: Return : $_Address2
+						50 : Return : "NA"
+
+			[Field: SEND_Supplier_tehsil]
+
+				Set as: $LEDTehsil
+				JSONTag : "tehsil"
+
+			[Field: SEND_Supplier_Distrct]
+
+				Set as: $LEDDistrict
+				JSONTag : "district"
+				
+			[Field: SEND_Supplier_partygsting]
+
+				Set as: $PartyGSTIN
+				JSONTag: "gstin"
+
+
+			[Field: SEND_Supplier_ledcontact]
+
+				Set as: $LedgerContact
+				JSONTag: "ledgercontact"
+				
+			[Field: SEND_Supplier_ledmobile]
+				
+				Set as: $ledgermobile
+				JSONTag: "ledgermobile"
+
+			[Field: SEND_Supplier_email]
+				
+				Set as: $email
+				JSONTag: "email"
+
+			[Field: SEND_Supplier_emailcc]
+
+				Set as: $emailcc
+				JSONTag: "emailcc"
+
+
+[Collection: SEND_Supplier_Tally]
+	
+	Type: Ledger
+	Child Of: $$GroupSundryCreditors
+	Belongs To: Yes
+	Filter : WebStatus
+	Fetch: Name, Parent, PymtResp,LedPermittedBy,LedRefBy,LedFirstDealBy,LedStateName,GSTRegistrationType,IncomeTaxNumber
+	Fetch: LEDDistrict,LEDTehsil,LEDCity,PinCode,CountryName,LedstateName,_Address4,_Address3,_Address2,_Address1,CreditLimit
+
+;	Filter: Customer_DebugFilter
+;	
+;	[System: Formula]
+;		
+;		Customer_DebugFilter: $Name IN ("2N 2N Enterprises, Hata Bharandi", "3 Star Electrical, Umarkot")

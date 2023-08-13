@@ -1,0 +1,225 @@
+;;; Shivgoraksh
+
+[Variable: CustomerLV]
+	
+	Type: String
+
+[#Menu: ExpressIntegrationExp]
+	
+	Add: Item: ERPNextCustomer  : Call: ERPNextCustomer
+	
+	[Function: ERPNextCustomer]
+		
+		List Variable: CustomerLV
+		Variable: vCustomerAccount : String
+
+
+		12 : Delete File: "STCustomer.xml"
+		13 : Open File: "STCustomer.xml" : Text : Write
+		14 : Truncate File
+
+		16 : Walk Collection: ERPNextCustomerColl
+		17 : Set: vCustomerAccount : $customer_name + " - " + @@EnableERPNextCmpAbbr
+		18 : Write File Line :     '    <TALLYMESSAGE xmlns:UDF="TallyUDF">'
+		20 : Write File Line :     '     <LEDGER NAME="'+$$Trim:##vCustomerAccount+'" RESERVEDNAME="">'
+		
+		22 : Write File Line :     '      <ADDRESS.LIST TYPE="String">'
+		23 : Walk Collection: taddress
+		24 : 	Do If: Not ($$IsEmpty:$address_line1) 	: Write File Line :     '       <ADDRESS>'+$$Trim:$address_line1+'</ADDRESS>'
+		26 : 	Do If: Not ($$IsEmpty:$address_line2) 	: Write File Line :     '       <ADDRESS>'+$$Trim:$address_line2+'</ADDRESS>'
+		28 : 	Do If: Not ($$IsEmpty:$city) 			: Write File Line :     '       <ADDRESS>'+$city+'</ADDRESS>'
+		28a: 	Do If: Not ($$IsEmpty:$state) 			: Write File Line :     '       <ADDRESS>'+$state+'</ADDRESS>'
+		30 : 	Write File Line :     '      <PARTYGSTIN>'+$gstin+'</PARTYGSTIN>'    
+		31 : 	Write File Line :     '      <LEDSTATENAME>'+$state+'</LEDSTATENAME>'    
+		32 : 	Write File Line :     '      <COUNTRYNAME>'+$country+'</COUNTRYNAME>'    
+		33 : End Walk 
+		34 : Write File Line :     '      </ADDRESS.LIST>'
+
+		38 : Write File Line :     '      <MAILINGNAME>'+$$Trim:$customer_name+'</MAILINGNAME>'
+		39 : Write File Line :     '      <EMAIL>'+$email_id+'</EMAIL>'
+		40 : Write File Line :     '      <GSTREGISTRATIONTYPE>'+@@gst_category+'</GSTREGISTRATIONTYPE>'
+		50 : Write File Line :     '      <PARENT>Sundry Debtors</PARENT>'
+		60 : Write File Line :     '      <LEDGERMOBILE>'+$mobile_no+'</LEDGERMOBILE>'
+		62 : Write File Line :     '      <LEDGERCONTACT>'+$first_name+'</LEDGERCONTACT>'
+		65 : Write File Line :     '      <INCOMETAXNUMBER>'+$pan+'</INCOMETAXNUMBER>'
+		70 : Write File Line :     '      <ISBILLWISEON>Yes</ISBILLWISEON>'
+		80 : Write File Line :     '      <ASORIGINAL>Yes</ASORIGINAL>'
+		
+		
+		90 : Write File Line :     '      <LANGUAGENAME.LIST>'
+		100: Write File Line :     '       <NAME.LIST TYPE="String">'
+		110: Write File Line :     '        <NAME>'+$$Trim:##vCustomerAccount+'</NAME>'
+		120: Write File Line :     '       </NAME.LIST>'
+		130: Write File Line :     '      </LANGUAGENAME.LIST>'
+		140: Write File Line :     '     </LEDGER>'
+		150: Write File Line :     '    </TALLYMESSAGE>'
+		152 : List Add: CustomerLV : $name : $name
+		155 : End Walk
+
+		200 : Close Target File
+		210 : SET : IMPORT File : "STCustomer.xml" 	
+		220 : Import : All Masters : Yes
+
+		230 : If : Not $$ImportInfo:Errors > 0		
+		240 : 	Call : UpdateCustomerStatus:($$NumItems:CustomerLVColl)
+		242 : else
+		245 : Msg Box: "Error" : "Something Went Wrong, Please contact support"
+		250 : End If
+
+
+	[System: Formula]
+		
+		gst_category : if $gst_category = "Registered Regular" then "Regular" else $gst_category
+
+
+		
+[Collection: ERPNextCustomerColl]
+	
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON : @@ERPNextHost + '/api/method/express_tally.send_tally.customer'
+	RemoteRequest: CustomerReq : UTF8
+	JSON Object : ERPNextCustomer
+	JSON Object Path: "message:1"
+	
+
+	[Object: ERPNextCustomer]
+		
+		Storage : name 			: String
+		Storage : customer_Name : String
+		Storage : gst_category 	: String
+		Storage : email_id	 	: String
+		Storage	: mobile_no	 	: String
+		Storage	: first_name 	: String
+		Storage : pan	 		: String
+	
+		collection : taddress : taddress
+		
+		[Object: taddress]
+			
+			Storage: address_line1	 : String
+			Storage: address_line2	 : String
+			Storage: city	 : String
+			Storage: county	 : String
+			Storage: state	 : String
+			Storage: gstin	 : String
+			Storage: gst_state	 : String
+			
+
+;; Request Report 
+
+	[Report: CustomerReq]
+		
+		Form: CustomerReq
+		
+		[Form: CustomerReq]
+			
+			Part: CustomerReq
+			Delete: XMLTag
+
+			[Part: CustomerReq]
+					
+				Line: CustomerReq
+				Scroll: Vertical
+
+				[Line: CustomerReq]
+					
+					Field: CustomerReqBranch, CustomerReqSyncFrom
+					;XMLTag: "request"
+					
+				[Field: CustomerReqBranch]
+					
+					XMLTag: "company"
+					Set as: @@ERPNextBranch
+					
+				[Field: CustomerReqSyncFrom]
+					
+					XMLTag: "date"
+					Set as: @@ERPNextLastSyncOn
+					
+;; End of Request Report
+
+
+
+;; Master Success 
+
+[Function: UpdateCustomerStatus]
+	
+	Parameter: processedIds : Number
+
+	08 : If: ##processedIds > 0 
+	10 : Walk Collection: UpdateCustomerColl
+	20 : End Walk
+	30 : End If
+	40 : Delete File: "STCustomer.xml"
+
+
+
+
+[Collection: UpdateCustomerColl]
+	
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source	 : HTTP JSON: @@ERPNextHost + '/api/method/express_tally.send_tally.customer_update'
+	RemoteRequest : UpdateCustomerRep : UTF8
+
+;; Status Report 
+
+[Report: UpdateCustomerRep]
+	
+	Form: UpdateCustomerRep
+	
+	[Form: UpdateCustomerRep]
+		
+		Part: UpdateCustomerRep
+		Delete: XMLTag
+
+	[Part: UpdateCustomerRep]
+		
+		Line: UpdateCustomerRep
+		Scroll: Vertical
+		
+	[Line: UpdateCustomerRep]
+		
+		Field: UpdateCustomerRep
+		Explode: UpdateCustomerRepExp
+		
+			[Part: UpdateCustomerRepExp]
+				
+				Line: UpdateCustomerRepExp
+				Repeat: UpdateCustomerRepExp : CustomerLVColl
+				
+				[Line: UpdateCustomerRepExp]
+					
+					Field: UpdateCustomerRepExp
+					JSONTag: "data"
+					
+					[Field:UpdateCustomerRepExp]
+						
+						Set as: $CustomerLV
+						XMLTag: "docname"
+		
+		[Field: UpdateCustomerRep]
+			
+			Set as: "Customer" ;; erpnext doc type
+			JSONTag: "request_type"
+	
+	[Collection: CustomerLVColl]
+		
+		Data Source: Variable: CustomerLV 
+		
+
+
+
+[Function: TRIM_Abbr]
+	
+	Parameter: vName : String
+	Variable: vAbbr : String: " - " +@@EnableERPNextCmpAbbr
+	
+	10 : Set: vName : $$StringFindAndReplace:##vName:##vAbbr:""
+	20 : Set: vName  : $$Trim:##vName
+	25 : Return: ##vName

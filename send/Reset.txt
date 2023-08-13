@@ -1,0 +1,749 @@
+;;Shivgoraksh
+
+/* ResetVoucher */
+
+;[#Menu : ExpressIntegration]
+;
+;	Option : Display Menu Opt : $$InDeveloperMode
+;
+;		[!Menu : Display Menu Opt]
+;
+;			Add : Item : Before : @@LocQuit : Sync Config : Menu : SyncConfig
+;			Add : Item : After : Sync Config : Blank
+	
+		[Menu : SyncConfig]
+
+			Title : "Sync Config"
+			Key Item : Selective Vouchers Sync : V : Call : SelectiveSync
+			Indent : Blank
+			Key Item : Reset All Voucher : A : Call : ResetVoucher
+			Indent : Blank
+			Key Item : Reset Company : C :  Call : ResetCompany;;
+			Indent : Blank
+			Key Item : Reset Groups : G :  Call : ResetGroup ;;
+			Indent : Blank
+			Key Item : Reset Customer : L : Call : ResetLedgerCustomer ;;
+			Indent : Blank
+			Key Item : Reset Supplier : L : Call : ResetLedgerSupplier ;;
+;			Indent : Blank
+;			Key Item : Reset Ledgers : L : Call : ResetLedger ;;
+			Indent : Blank
+			Key Item : Reset Cost Category : T :  Call : ResetCostCategories
+			Indent : Blank
+			Key Item : Reset Cost Centres : C : Call : ResetCostCentre
+			Indent : Blank
+			Key Item : Reset Stock Groups :  G :Call : ResetStockGroup ;;
+			Indent : Blank
+;			Key Item : Reset Stock Category : Y : Call : ResetStockCategories
+;			Indent : Blank
+			Key Item : Reset StockItems : I : Call : ResetStockItem ;;
+			Indent : Blank
+			Key Item : Reset Godowns : D : Call : ResetGodown 
+			Indent : Blank
+			Key Item : Reset Units	 : U : Call : ResetUnit 
+			Indent : Blank
+			Key Item : Reset Budgets  : B : Call : ResetBudget
+
+	
+[Function : ResetFunction]
+	
+	10 : Call : ResetVoucher
+	20 : Call : ResetGroup ;;
+	30 : Call : ResetLedger ;;
+	35 : Call : ResetCostCategories
+	40 : Call : ResetCostCentre
+	50 : Call : ResetStockGroup ;;
+	55 : Call : ResetStockCategories
+	60 : Call : ResetStockItem ;;
+	70 : Call : ResetGodowns ;;
+	80 : Call : ResetUnits ;;
+	90 : Call : ResetBudgets ;;
+	
+	
+;[Function : ResetVoucher]
+	
+;	Variable : NumItems : Number
+;	Variable : PCounter : Number
+;	Variable : Hoshiyari : String
+;	
+;	10 : Query Box : Are You Sure! \n You Want to Reset Voucher ? : YEs : No
+;	20 : If : $$LastResult
+;	22 : Alter : MyFlagReport
+;	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetVoucher > 0
+;	25 : Set : NumItems : $$NumItems:ResetVoucher
+;	26 : Set : PCounter : 1
+;	27 : Start Progress : ##NumItems : "Resetting Vouchers"
+;	28 : Start Batch Post: 100
+;	30 : Walk Collection : ResetVoucher
+;	35 : Set Target
+;	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+;	45 : Accept Alter
+;	50 : Show Progress : ##PCounter
+;	55 : Increment  : PCOunter
+;	60 : End Walk
+;	62 : End Batch Post
+;	65 : End Progress
+;	70 : End If
+;	80 : End If
+
+
+;[Collection : ResetVoucher]
+;	
+;	Type : Voucher
+;	Fetch : WebStatus
+;	Filter : NonHoshiyari	
+
+	
+[Function : ResetVoucher]
+
+		Variable : vMasterID 	: String
+		Variable : vStatus 		: String
+		Variable : vResponse	: String
+		Variable : vVoucherType : String
+
+		Variable : NumItems : Number
+		Variable : PCounter : Number : 1
+	
+
+		Variable: TempFromDate  : Date: ##SVFromDate
+		Variable: TempToDate	: Date: ##SVToDate
+		Variable: TempCurrentDate : Date: ##SVCurrentDate
+
+		Local Formula   : LastVchDate    :  $LastVoucherDate:Company:##SVCurrentCompany
+
+		00 : Query Box: "Reset Vouchers ?" : Yes: No
+		01 : If: $$LastResult
+		01a : Walk Collection : VoucherTypeColl 
+		02 : 	Set: vVoucherType : $Name
+		03 : 	Start Progress : 1 : "Resetting Vouchers" : ##vVoucherType 
+		04 : 		FOR RANGE  : IteratorDate  : Date  : @@SyncStartFrom    : @LastVchDate   : 1 : "Day" ; "Week"  ;"Day"
+		05 : 			SET : SVFromDate    : ##IteratorDate
+		06 : 			SET : SVToDate      : ##IteratorDate
+		08 : 			Set : Numitems : $$Numitems:ResetVoucher
+		09 : 			if : ##Numitems  > 0
+		10 :				Start Batch Post
+		16 : 					Walk Collection: ResetVoucher
+		17 :						Log: $VoucherTypename + " - "+ $VoucherNumber + " - " +$$String:$Date
+		18 : 						Set : vMasterID : "ID:"+$$String:$MasterID
+		19 : 						Modify Object : (Voucher,##vMasterID).WebStatus[1].WebStatus : "Reset"
+		20 : 					End Walk
+		22: 				End Batch Post
+		31 :			End If
+		32 : 		Show Progress :##PCounter
+		35 : 		End For
+		40 : 	End Progress
+		50 : End Walk
+
+		51 : Set: SVFromDate : ##TempFromDate
+		52 : Set: SVToDate : ##TempToDate
+		53 : Set: SVCurrentDate : ##TempCurrentDate 
+		54 : End IF 
+
+
+
+	[Collection : ResetVoucher]
+		
+		Parm Var: SVFromDate : Date: ##SVFromDate
+		Parm Var: SVToDate	 : Date: ##SVToDate
+
+		Type : Vouchers : VoucherType
+		Child Of: ##vVoucherType 
+		Fetch : PartyLedgerName,BasicBuyerName,PartyName,GUID,ReferenceDate, BrokerName
+		Filter: VNRIsCancelled
+		Filter: VNRIsOptional
+	
+
+/*Reset Ledger*/
+
+[Function : ResetLedgerSupplier]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Ledger? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetLedgerSupplier > 0
+	25 : Set : NumItems : $$NumItems:ResetLedgerSupplier
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Suppliers"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetLedgerSupplier
+;	31 : Log: $Name
+	35 : Set Target
+	36 : Set Object
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 : End If
+	
+[Collection : ResetLedgerSupplier]
+
+	Type : Ledger
+	Child Of: $$GroupSundryCreditors
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+	Belongs To: Yes
+
+
+[Function : ResetLedgerCustomer]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Ledger? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetLedgerCustomer > 0
+	25 : Set : NumItems : $$NumItems:ResetLedgerCustomer
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Customer"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetLedgerCustomer
+;	31 : Log: $Name
+	35 : Set Target
+	36 : Set Object
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 : End If
+	
+[Collection : ResetLedgerCustomer]
+
+	Type : Ledger
+	Child Of: $$GroupSundryDebtors
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+	Belongs To: Yes
+
+
+
+
+;;Reset Company
+
+[Function : ResetCompany]
+	
+	10 : Modify Object: (COmpany,##SVCurrentCompany).WebStatus[1].WEbStatus : "Reset"
+
+/*Reset Group*/
+[Function : ResetGroup]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Status : String
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Group? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetGroup > 0
+	25 : Set : NumItems : $$NumItems:ResetGroup
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Group"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetGroup
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ; "Reset"
+	42 : Set Value: WebStatus_message : ""
+
+	45 : Accept Alter 
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 :End If
+
+[Collection : ResetGroup]
+
+	Type : Group
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+	
+		[System : Formula]
+			
+			NonHoshiyari : Not $WebStatus = ##Hoshiyari
+
+
+
+
+/*Reset Stock Group*/
+
+[Function : ResetStockGroup]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Stock Group? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetStockGroup > 0
+	25 : Set : NumItems : $$NumItems:ResetStockGroup
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Stock Group"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetStockGroup
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter 
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetStockGroup]
+
+	Type : StockGroup
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+
+
+
+
+/*Reset Stock Item*/
+
+[Function : ResetStockItem]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Stock Item? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetStockItem> 0
+	25 : Set : NumItems : $$NumItems:ResetStockItem
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Stock Items"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetStockItem
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari
+	42 : Set Value: WebStatus_message : ""
+	45 : Alter Target
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetStockItem]
+
+	Type : StockItem
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+
+
+
+/*Cost Categories*/
+
+[Function : ResetCostCategories]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Cost Categories? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetCostCategories > 0
+	25 : Set : NumItems : $$NumItems:ResetCostCategories
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Cost categories"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetCostCategories
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetCostCategories]
+
+	Type : Cost Category
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+
+
+/* Cost Centre */
+
+[Function : ResetCostCentre]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset CostCentre ? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetCostCentre > 0
+	25 : Set : NumItems : $$NumItems:ResetCostCentre
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting CostCentre"
+	28 : Start Batch Post
+	30 : Walk Collection : ResetCostCentre
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	62 : End Batch Post
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetCostCentre]
+
+	Type :CostCentre
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+
+
+
+/* StockCategory */
+
+[Function : ResetStockCategory]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset StockCategory ? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetStockCategory > 0
+	25 : Set : NumItems : $$NumItems:ResetStockCategory
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting StockCategory"
+	30 : Walk Collection : ResetStockCategory
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetStockCategory]
+
+	Type :StockCategory
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+
+
+
+
+/* Godown */
+
+[Function : ResetGodown]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Godown ? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetGodown > 0
+	25 : Set : NumItems : $$NumItems:ResetGodown
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Godown"
+	30 : Walk Collection : ResetGodown
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetGodown]
+
+	Type :Godown
+	Fetch : WebStatus
+	Filter : NonHoshiyari
+
+
+
+/* Unit */
+
+[Function : ResetUnit]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Unit ? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetUnit > 0
+	25 : Set : NumItems : $$NumItems:ResetUnit
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Unit"
+	30 : Walk Collection : ResetUnit
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetUnit]
+
+	Type 	: Unit
+	Fetch 	: WebStatus
+	Filter 	: NonHoshiyari
+
+
+/* Budget */
+
+[Function : ResetBudget]
+	
+	Variable : NumItems : Number
+	Variable : PCounter : Number
+	Variable : Hoshiyari : String
+	
+	10 : Query Box : Are You Sure! \n You Want to Reset Budget ? : YEs : No
+	20 : If : $$LastResult
+	22 : Alter : MyFlagReport
+	23 : If : Not $$IsEmpty:##Hoshiyari and $$NumItems:ResetBudget > 0
+	25 : Set : NumItems : $$NumItems:ResetBudget
+	26 : Set : PCounter : 1
+	27 : Start Progress : ##NumItems : "Resetting Budget"
+	30 : Walk Collection : ResetBudget
+	35 : Set Target
+	40 : Set Value : WebStatus : ##Hoshiyari ;"Reset"
+	42 : Set Value: WebStatus_message : ""
+	45 : Accept Alter
+	50 : Show Progress : ##PCounter
+	55 : Increment  : PCOunter
+	60 : End Walk
+	65 : End Progress
+	70 : End If
+	80 : End If
+
+[Collection : ResetBudget]
+
+	Type 	: Budget
+	Fetch 	: WebStatus
+	Filter 	: NonHoshiyari
+
+
+
+
+
+
+
+
+
+
+/* Selectiv Sync */
+
+
+[Function : SelectiveSync]
+		
+	Variable : SBVoucherDate 	: Date
+	Variable : Counter 			: Number
+	Variable : Hoshiyari 		: String
+	Variable : SelectiveSync	: Logical
+	Variable : VID : String
+	
+	01 : Query Box : "Update ?" : Yes:No
+	02 : if : $$LastResult
+	03 : 	Set : Hoshiyari  : ""
+	03a: 	Set : SelectiveSync  : Yes
+	04 : 	Alter : MyFlagReport
+	05 : 	IF : Not $$IsEmpty:##Hoshiyari and $$NumItems:MyVchCollSelective > 0
+	06 : 		Set : Counter : 0
+	08 : 		Start Batch Post
+	10 : 		Start Progress : ($$NumItems:MyVchCollSelective) : "Update In Progress" : "Updating Vouchers.."
+	20 : 			Walk Collection : MyVchCollSelective
+	21 : 			Set : VID : "ID:"+$$String:$Masterid
+	35 : 				SET TARGET
+	45 : 				SET VALUE: WebStatus 		 : ##Hoshiyari
+	42 : 				Set Value: WebStatus_message : ""
+	43 : 				Set Value: WebStatus_DocName : ""
+	55 : 				ACCEPT ALTER
+	61 : 			Increment : Counter
+	62 : 			Show Progress : ##Counter
+	70 : 			END Walk
+	80 : 		End Progress
+	81 : 		End Batch Post
+	
+	82 : 	End if
+	83 : End if
+	
+	
+
+		[Report : MyFlagReport]
+			
+			Form : MyFlagReport
+			
+			[Form : MyFlagReport]
+				
+				Part : MyFlagReport
+				Option : Selectivesync : ##SelectiveSync
+				
+			[!Form : Selectivesync]
+				
+				Add  : Part : At Beginning : SelectiveSync
+				
+			[Part : SelectiveSync]
+				
+				Line : SelectiveSync Period,SelectiveSync VType
+				
+				[Line : SelectiveSync Period]
+					
+					Field : Medium Prompt,SelectiveSync From,Simple Prompt,SelectiveSync To
+					Local : Field : Medium Prompt : Info : "Sync From :"
+					Local : Field : Simple Prompt : Info : "  To : "
+
+
+					[Field : SelectiveSync From]
+						
+						Use : Uni Date Field
+						Modifies : SelectiveSyncFrom : Yes
+						Set Always : YEs
+
+					[Field : SelectiveSync To]
+						
+						Use : Uni Date Field
+						Modifies : SelectiveSyncTo : Yes
+						Set Always : YEs
+						
+			[Variable : SelectiveSyncFrom]
+				
+				Type : Date
+				
+			[Variable : SelectiveSyncTo]
+				
+				Type : Date
+
+
+				[Line : SelectiveSync VType]
+					
+					Field : Medium Prompt,SelectiveSync Vtype;,Simple Prompt,SelectiveSync To
+					Local : Field : Medium Prompt : Info : "Voucher Type :"
+					Local : Field : Simple Prompt : Info : "  To : "
+
+					[Field : SelectiveSync Vtype]
+						
+						Use : Name Field
+						Modifies : SelectiveSyncVtype : Yes
+						Set Always : Yes
+						Table : List of Voucher Types,AllItems
+						
+
+					[Variable : SelectiveSyncVtype]
+						
+						Type : String
+
+						[System : Variable]
+
+							SelectiveSyncVtype 	: ""
+							SelectiveSyncFrom 	: ""
+							SelectiveSyncTo		: ""
+
+			[Part : MyFlagReport]
+				
+				Line : MyFlagReport
+				
+			[Line : MyFlagReport]
+				
+				Field : Short Prompt,MyFlagReport,MyFlagReport1
+				Local : Field : ShortPrompt : Set as : "Value To Set : "
+				
+				[Field: MyFlagReport]
+
+					Use : Name Field 
+					Table : List of statusTsync
+					Show Table : Always
+					Set Always : Yes
+					Set Always: YEs
+
+				[Field : MyFlagReport1]
+					
+					Use : Name Field 
+					Set as: If #MyFlagReport = "Created" then "1" else "Reset"
+					Show Table : Always
+					Set Always: "Yes"
+					Modifies : Hoshiyari : YEs
+					Set Always : Yes
+					Invisible:Yes
+					
+				[Table : List of statusTsync]
+					
+					List : "Created","Reset", @@ERPNextResetFlag
+
+
+	[Collection : MyVchCollSelective]
+		
+		Parm Var : SVFromDate : Date : ##SelectiveSyncFrom
+		Parm Var : SVToDate : Date : ##SelectiveSyncTo
+
+		Type : Vouchers : VoucherType
+		Child of : ##SelectiveSyncVType
+		Fetch : MasterId,WebStatus
+		Filter : SyncFlag ;
+		;Filter : SelectiveSyncPeriodFilter;,SelectiveSyncVchTypeFilter
+
+		;Option : MyVchCollSelectiveAll : ##SelectiveSyncVType = $$SysName:AllItems
+		
+
+		[!Collection : MyVchCollSelectiveAll]
+			
+			Delete : Filter : SelectiveSyncVchTypeFilter
+	
+
+		[System : Formula]
+
+			SyncFlag : Not ($WebStatus = ##Hoshiyari); or $$IsEmpty:$WebStatus
+
+			SelectiveSyncPeriodFilter 	: $Date Between ##SelectiveSyncFrom and ##SelectiveSyncTo
+			SelectiveSyncVchTypeFilter	:  $VoucherTypeNAme = ##SelectiveSyncVType
+
+		[#Object : VoucherType]
+			
+			SelectiveAll : "1"
+
+	

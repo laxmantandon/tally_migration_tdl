@@ -1,0 +1,134 @@
+;;Shivgoraksh
+
+	[Function: Trim_Address]
+		
+		Parameter: vAddress : String
+		
+		10 : Set: vAddress : $$StringFindAndReplace:##vAddress:"br>":""
+		20 : Set: vAddress : $$StringFindAndReplace:##vAddress:"\n":","
+		30 : Set: vAddress  : $$Trim:##vAddress
+		35	 : Return: ##vAddress
+		
+
+	[Function: GetItemBatch]
+		
+		Parameter : vItemCode : String
+		Parameter: vItemName : String
+		10 : Do If : ##vItemCode = "TE9SU" : Return: $serial_no
+		20 : Do If : ##vItemCode = "TE9MU" : Return: $serial_no
+		31 : Do If : ##vItemCode = "TSS Silver" : Return: $$GetTSSBatch:$description:$item_name
+		32 : Do If : ##vItemCode = "TSS Auditor" : Return: $$GetTSSBatch:$description:$item_name
+		33 : Do If : ##vItemCode = "TE9 Upgrade" : Return: $$GetTSSBatch:$description:$item_name
+		34 : Do If : ##vItemCode = "Tally Software Services Gold 1 Year" : Return: $$GetTSSBatch:$description:$item_name
+
+	[Function: GetTSSBatch]
+		
+		Parameter: vDesc : String
+		Parameter: vItemName :String
+
+		10 : Set: vDesc : $$StringFindAndReplace:##vDesc:##vItemName:""
+		20 : Return: ##vDesc
+
+
+	[Function: GetERPNextSalesman]
+		
+		Parameter: vUserId : String
+
+		10 : Do If : ##vUserId = "jitendra.sahu@step-tech.in" 	: Return: "Jitendra Sahu"
+		20 : Do If : ##vUserId = "lilendrazn@gmail.com"	 		: Return: "Lilendra Sahu"
+		30 : Do If : ##vUserId = "Administrator" 				: Return: "Laxman Tandon"
+
+
+
+[Function : GetSQLDate]
+		
+	Parameter : vDate : Date: "01-01-1970"
+	
+	Variable 		: MDay			: String
+	Variable 		: MMonth		: String
+	Variable 		: MYear 		: String
+	Variable 		: COnvDate 		: String
+
+	100		: SET 	: MMonth 		: $$MonthOfDate:##vDate
+	150		: SET 	: MMonth 		: if $$StringLength:##MMonth = 1 then "0"+##MMonth else ##MMonth
+	200		: SET 	: MDay 			: $$DayOfDate:##VDate
+	250		: SET 	: MDay 			: if $$StringLength:##MDay = 1 then "0"+##MDay else ##MDay
+	300		: SET 	: Myear 		: $$YearofDate:##vDate
+	400		: SET 	: ConvDate 		: (##MYear+"-"+##MMonth+"-"+##MDay)
+	500		: RETURN 	: ##ConvDate
+
+[Function : GetTallyDate]
+	
+	Parameter : vDate : String: "2019-04-01"
+	
+	Variable 		: MDay			: String
+	Variable 		: MMonth		: String
+	Variable 		: MYear 		: String
+	Variable 		: COnvDate 		: String
+;2019-04-01
+
+	100		: SET 	: MMonth 		: $$StringPart:##vDate:5:2
+	200		: SET 	: MDay 			: $$StringPart:##vDate:8:2
+	300		: SET 	: Myear 		: $$StringPart:##vDate:0:4
+	400		: SET 	: ConvDate 		: (##MDay+"-"+##MMonth+"-"+##MYear)
+;	450 : Log: ##ConvDate 		
+	500		: RETURN 	: $$String:##ConvDate
+
+
+[Function: Trim]
+	
+	Parameter : vString : String
+	
+	08 : Set : vString : $$StringFindAndReplace:##vString:"</div>":""
+	09 : Set : vString : $$StringFindAndReplace:##vString:"<div>":""
+;	10 : Set : vString : $$StringFindAndReplace:##vString:",":""
+;	11 : Set : vString : $$StringFindAndReplace:##vString:"-":""
+;	12 : Set : vString : $$StringFindAndReplace:##vString:"/":""
+;	13 : Set : vString : $$StringFindAndReplace:##vString:"\":""
+;	14 : Set : vString : $$StringFindAndReplace:##vString:":":"&colon;"
+;	15 : Set : vString : $$StringFindAndReplace:##vString:";":"&semi;"
+	16 : Set : vString : $$StringFindAndReplace:##vString:"&":"&amp;"
+;	17 : Set : vString : $$StringFindAndReplace:##vString:"(":""
+;	18 : Set : vString : $$StringFindAndReplace:##vString:")":""
+;	19 : Set : vString : $$StringFindAndReplace:##vString:"$":"$dollar;"
+	20 : Set : vString : $$StringFindAndReplace:##vString:'"':"&quot;"
+	21 : Set : vString : $$StringFindAndReplace:##vString:"'":"&apos;"
+;	22 : Set : vString : $$StringFindAndReplace:##vString:",":""
+	25 : Set : vString : $$StringFindAndReplace:##vString:"<":"&lt;"
+	30 : Set : vString : $$StringFindAndReplace:##vString:">":"&gt;"
+
+
+	80 : Return: ##vString
+
+
+
+[Collection: VoucherColl]
+
+	Parm Var: SVFromDate : Date: $$Date:"01-04-2022"
+	Parm Var: SVToDate : Date: $$Date:"31-03-2023"
+
+	Type: Vouchers : VoucherTypes
+	Child Of:  "Sales Local" ;"Sale Gst" ; 
+	;Sales Local
+
+;[#Menu: Gateway of Tally]
+;	
+;		Add:  Item: update VOuchers : Call: UpdateVoucherNumber
+
+[Function: UpdateVoucherNumber]
+
+	Variable: vNumber : String
+	Variable: Counter : Number: 1
+	08: Start Batch Post
+	09 : Start Progress: ($$NumItems:VoucherColl ): "Updating"
+	10 : Walk Collection: VoucherColl
+	12 : 	Set: vNumber : $VoucherNumber 
+	15 : 	Set Target
+	18 : 		Set Value: VoucherNumber : "2022-23/" + ##vNumber
+	20 : 	Alter Target
+	21 : Show Progress: ##Counter
+	22 : Increment: Counter
+	80 : End Walk
+	90 : End Batch Post
+	100 : End Progress
+

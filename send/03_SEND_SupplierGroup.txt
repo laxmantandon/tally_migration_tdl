@@ -1,0 +1,120 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_SupplierGroup]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.supplier_group'
+
+	RemoteRequest: SEND_SupplierGroup : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item: Send Supplier Group : Call: SEND_SupplierGroup
+;	Add: Item: Send SupplierGroup : Call: SEND_SupplierGroup_Start
+
+	[Function: SEND_SupplierGroup_Start]
+		
+		10 : Start Timer: SEND_SupplierGroup_Timer : 1
+
+	[System: Events]
+		
+		SEND_SupplierGroup_Timer : Timer: True: Call: SEND_SupplierGroup
+
+[Function: SEND_SupplierGroup]
+
+	Variable : vName  : String
+	Variable : vMessage : String
+	
+	Variable: vCounter_send : Number: 1
+	Variable: vStatus : String
+
+	06 : Do If: ($$NumItems:SEND_SupplierGroup_Tally = 0) :  Stop Timer: SEND_SupplierGroup_Timer
+	07 : Do If: ($$NumItems:SEND_SupplierGroup_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_SupplierGroup_Timer
+	09 : Start Progress: 1 : "Sending SupplierGroup" : ""
+
+	10 : Walk Collection: SEND_SupplierGroup
+;	20 : 	If: $Status
+	12 : Set: vStatus : $Status
+
+	22 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Group, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 :			Modify Object: (Group, ##vName).WebStatus_message[1].WebStatus_message : ##vMessage
+	40 :		End Walk
+	45 : 	End Batch Post
+;	50 : 	End If
+	60 : End Walk
+	
+	65 : Do If: ($$NumItems:SEND_SupplierGroup_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_SupplierGroup_Timer : 1
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Request - Custoemr Group  : Display: SEND_CustomerGroup
+
+[Report : SEND_SupplierGroup]
+	
+	Form: SEND_SupplierGroup
+	
+	[Form: SEND_SupplierGroup]
+		
+		Part: SEND_SupplierGroup
+		Delete: XMLTag
+
+	[Part: SEND_SupplierGroup]
+		
+		Line: SEND_SupplierGroup
+		Repeat: SEND_SupplierGroup : SEND_SupplierGroup_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_SupplierGroup]
+			
+			Field: SEND_SupplierGroup, SEND_SupplierGroup_IsGroup, SEND_SupplierGroup_dotype, SEND_SupplierGroup_PrimaryGroup
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+			
+			[Field: SEND_SupplierGroup]
+				
+				Set as: $Name
+				JSONTag: "supplier_group_name"
+				
+			[Field: SEND_SupplierGroup_IsGroup]
+				
+				Set as: If $$NumItems:SEND_SupplierGroup_HasNodeColl > 1 then 1 else 0
+				JSONTag: "is_group"
+				Type: Number
+				
+					[Collection : SEND_SupplierGroup_HasNodeColl]
+						
+						Type: Group
+						Child Of: $Name
+						Belongs To: Yes
+				
+			[Field: SEND_SupplierGroup_dotype]
+				
+				Set as: "Supplier Group"
+				JSONTag: "doctype"
+
+			[Field: SEND_SupplierGroup_PrimaryGroup]
+			                                                                                                                                                                                                       	
+				Set as: if $depth <= 3 then "All Supplier Groups" else $Parent
+				JSONTag : "parent_supplier_group"
+
+
+[Collection: SEND_SupplierGroup_Tally]
+	
+	Type: Group
+	Child Of: "Sundry Creditors"
+	Belongs To: Yes
+	Sort: @@Default : $depth
+	Filter : WebStatus
+

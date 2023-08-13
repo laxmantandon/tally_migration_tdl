@@ -1,0 +1,229 @@
+;; Shivgoraksh
+
+[Collection: SEND_CustomerOp]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.customer_opening'
+;	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.create_address'
+
+	RemoteRequest: SEND_CustomerOp : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;	Add: Item: Send Customer Opening : Call: SEND_CustomerOp
+;
+[Function: SEND_CustomerOp]
+
+	Variable : vName  : String
+	Variable : vMessage : String
+	
+	10 : Walk Collection: SEND_CustomerOp
+	20 : 	If: $Status
+	22 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Ledger, ##vName).Bill_Status[1].Bill_Status : @@ERPNextResetFlag
+	32 :			Modify Object: (Ledger, ##vName).Bill_Message[1].Bill_Message : ##vMessage
+	40 :		End Walk
+	45 : 	End Batch Post
+	50 : 	End If
+	60 : End Walk
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Request - CustomerOp: Display: SEND_CustomerOp
+
+[Report : SEND_CustomerOp]
+	
+	Form: SEND_CustomerOp
+	Variable: SVFromDate, SVToDate
+	Set: SVFromDate : @@CmpStartDate
+	Set: SVToDate	: $$YearEnd:@@CmpStartDate
+	
+	[Form: SEND_CustomerOp]
+		
+		Part: SEND_CustomerOp
+		Delete: XMLTag
+
+	[Part: SEND_CustomerOp]
+		
+		Line: SEND_CustomerOp
+		Repeat : SEND_CustomerOp : SEND_CustomerOp_Ledgers
+		Scroll: Vertical
+
+		[Line: SEND_CustomerOp]
+			
+			Field: SEND_CustomerOp
+			JSONTag: "data"
+			Explode: SEND_CustomerOp_bills : $$NumItems:SEND_CustomerOp_Tally > 0
+			Empty: $$Line > @@RecordsLimit
+
+			[Field: SEND_CustomerOp]
+				
+				Set as: $Name
+				JSONTag: "account"
+		
+		[Part: SEND_CustomerOp_bills]
+
+		Line: SEND_CustomerOp_bills 
+		Repeat: SEND_CustomerOp_bills : SEND_CustomerOp_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_CustomerOp_bills]
+			;SEND_CustomerOp_name
+			Field: SEND_CustomerOp_name, SEND_CustomerOp_customer, SEND_CustomerOp_company,SEND_CustomerOp_posting_date,+
+					SEND_CustomerOp_due_date, SEND_CustomerOp_debit_to, SEND_CustomerOp_against_income_account,+
+					SEND_CustomerOp_amount, SEND_CustomerOp_is_return
+
+			JSONTag: "bills"
+			
+			[Field: SEND_CustomerOp_name]
+				
+				Json Tag: "bill_name"
+				Set as: $bill_name
+
+			[Field: SEND_CustomerOp_customer]
+				
+				Json Tag: "customer"
+				Set as: $customer
+
+			[Field: SEND_CustomerOp_company]
+
+				Json Tag: "company"
+				Set as: @@ERPNextBranch
+
+			[Field: SEND_CustomerOp_posting_date]
+
+				Json Tag: "posting_date"
+				Set as: $$getSqlDate:$posting_date
+
+			[Field: SEND_CustomerOp_due_date]
+
+				Json Tag: "due_date"
+				Set as: $$getSqlDate:$due_date
+
+			[Field: SEND_CustomerOp_debit_to]
+
+				Json Tag: "debit_to"
+				Set as: $debit_to
+				
+			[Field: SEND_CustomerOp_against_income_account]
+
+				Json Tag: "against_income_account"
+				Set as: $against_income_account
+				
+			[Field: SEND_CustomerOp_amount]
+
+				Json Tag: "amount"
+				Set as: if $$IsDr:$amount then $$Number:$amount else $$Number:$amount * -1
+				Type: Number
+				
+			[Field: SEND_CustomerOp_is_return]
+				
+				Type: Number
+				Set as : if $$IsDr:$amount then 0 else 1
+				JSONTag: "is_return"
+
+
+[Collection: SEND_CustomerOp_Ledgers]
+	
+	Parm Var: SVFromDate : Date: @@CmpStartDate
+	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+
+	Type: Ledger 
+	Child Of: $$GroupSundryDebtors
+	Belongs To: Yes
+	Filter: Bill_Status
+	Filter: Bill_HasClosing
+	
+	[System: Formula]
+		
+		Bill_Status : $Bill_Status != @@ERPNextResetFlag
+		Bill_HasClosing : Not $$IsEmpty:($$ToValue:##SVToDate:$ClosingBalance)
+		
+	[System: UDf]
+		
+		Bill_Status:  String: 31577
+		Bill_Message : String: 31578
+
+[Collection: SEND_CustomerOp_TallySrc]
+	
+	Parm Var: SVFromDate : Date: @@CmpStartDate
+	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+
+	Parm Var: vLEdgerName : String : $Name
+
+	Type: Bills
+	Child Of: $Name
+	Belongs To: Yes
+	
+;	Filter : Debug_Filter
+;	
+;	[System : Formula]
+;		
+;		Debug_Filter : $Parent = "Ajaz Khan, (A.K. Electricals), Baihar" ;"Sanjay Electrical's, Dongargarh" ;"Virendra Electricals, Akaltara"
+
+[Collection: SEND_CustomerOp_Tally]
+
+	Parm Var: SVFromDate : Date: @@CmpStartDate
+	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+
+	Source Collection: SEND_CustomerOp_TallySrc
+	Compute: bill_name 		: $Name
+	Compute: customer	 	: $Parent
+	Compute: posting_date 	: $BillDate
+	Compute: due_date		: $$String:$BillCreditPeriod:UniversalDate 
+	Compute: debit_to		: $Parent + " - " + @@EnableERPNextCmpAbbr
+	Compute: against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
+	Compute: amount			: $ClosingBalance
+	
+	Option: LEDOnAccount Opt : NOt $$IsEmpty:($OnAccountValue:Ledger:#SEND_CustomerOp)
+
+	[!Collection: LEDCustomerOnAccount Opt]
+
+		Object: LEDCustomerOnAccount
+	
+		[Object: LEDCustomerOnAccount]
+			
+			bill_name 		: "On Account" ;$Name
+			customer	 	: #SEND_CustomerOp
+			posting_date 	: $$YearEnd:@@CmpStartDate
+			due_date		: $$YearEnd:@@CmpStartDate
+			debit_to		: #SEND_CustomerOp + " - " + @@EnableERPNextCmpAbbr
+			against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
+			amount			: $OnAccountValue:Ledger:#SEND_CustomerOp
+				
+
+;;; Backup if not splitted
+
+;[Collection: SEND_CustomerOp_TallySrc]
+;	
+;	Type: Ledger
+;	Child Of: $$GroupSundryDebtors
+;	Belongs To: Yes
+;	Filter : Debug_Filter
+;	
+;	[System : Formula]
+;		
+;		Debug_Filter : $Name = "Virendra Electricals, Akaltara"
+;
+;[Collection: SEND_CustomerOp_Tally]
+;	
+;	Source Collection: SEND_CustomerOp_TallySrc
+;	Walk: Bill Allocations
+;	Compute: bill_name 		: $Name
+;	Compute: customer	 	: $..Name
+;	Compute: posting_date 	: $BillDate
+;	Compute: due_date		: $$String:$BillCreditPeriod:UniversalDate 
+;	Compute: debit_to		: $..Name + " - " + @@EnableERPNextCmpAbbr
+;	Compute: against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
+;	Compute: amount			: $OpeningBalance
+
+

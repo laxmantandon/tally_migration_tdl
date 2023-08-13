@@ -1,0 +1,666 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_SalesInvoice]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.voucher'
+
+	RemoteRequest: SEND_SalesInvoice : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item : Send SalesInvoice One : Call: SEND_SalesInvoice
+;	Add: Item: Send SalesInvoice_Cont : Call: SEND_SalesInvoice_Start
+
+	[Function: SEND_SalesInvoice_Start]
+		
+		10 : Start Timer: SEND_SalesInvoice_Timer : 1
+		
+	[System: Events]
+		
+		SEND_SalesInvoice_Timer : Timer: True: Call: SEND_SalesInvoice
+
+[Function: SEND_SalesInvoice]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+	Variable: vDocName : String
+	Variable: vStatus : Logical
+
+
+	06 : Do If: ($$NumItems:SEND_SalesInvoice_Tally = 0) :  Stop Timer: SEND_SalesInvoice_Timer
+	07 : Do If: ($$NumItems:SEND_SalesInvoice_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_SalesInvoice_Timer
+	09 : Start Progress: 1 : "Sending Sales Invoices" : ""
+
+	10 : Walk Collection: SEND_SalesInvoice
+	12 : 	Set: vStatus : $Status
+	20 : 	If: ##vStatus
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : "ID:"+$name
+	28a:		Set: vDocName : $docname
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Voucher, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (Voucher, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	33 : 			Modify Object: (Voucher, ##vName).WebStatus_DocName[1].WebStatus_DocName : ##vDocName
+	40 :		End Walk
+	42 :	End Batch Post
+	45 : 	End If
+	60 : End Walk
+	
+	65 : Do If: ($$NumItems:SEND_SalesInvoice_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_SalesInvoice_Timer : 1
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: SalesInvoice:TEst1 : Display: SEND_SalesInvoice
+
+[Report : SEND_SalesInvoice]
+	
+	Form: SEND_SalesInvoice
+
+	[Form: SEND_SalesInvoice]
+		
+		Part: SEND_SalesInvoice
+		Delete: XMLTag
+
+	[Part: SEND_SalesInvoice]
+		
+		Line: SEND_SalesInvoice
+		Repeat: SEND_SalesInvoice : SEND_SalesInvoice_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_SalesInvoice]
+			;SI_debit_to
+			Field: SI_doctype, SI_naming_series, SI_customer, SI_company, SI_posting_date,SI_posting_time, SI_due_date, SI_currency
+			Field: SI_gst_category, SI_remarks, SI_webstatus_docname, SI_tally_masterid, SI_vouchernumber
+			Field: SI_checked_by, SI_arranged_by, SI_noted_by, SI_electrician, SI_BiltyNumber, SI_BillofLadingDate, SI_BasicShipVesselNo
+			Field: SI_BasicShippedBy
+			Field: SI_IRNAckNo, SI_IRNAckDate, SI_IRN, SI_eWayBillNumber
+			Field: SI_set_posting_time, SI_update_stock
+			Field: SI_is_return, SI_source_warehouse
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit	
+			Explode: SI_items
+			Explode: SI_ledgers
+
+			[Field: SI_doctype]
+				
+				Set as: "Sales Invoice"
+				JSONTag: "doctype"
+
+			[Field: SI_naming_series]
+				
+				Set as: @@ERPNextNamingSeries
+				JSONTag: "naming_series"
+
+			[Field: SI_customer]
+				
+				Set as:$PartyLedgerName
+				JSONTag: "customer"
+				
+			[Field: SI_company]
+				
+				Set as: @@ERPNextBranch
+				JSONTag: "company"
+
+			[Field: SI_posting_date]
+				
+				Set as: $$GetSqlDate:$Date
+				JSONTag: "posting_date"
+
+			[Field: SI_posting_time]
+				
+				Set as: $$MachineTime
+				JSONTag: "posting_time"
+
+			[Field: SI_due_date]
+				
+				Set as: $$GetSqlDate:@DueDate
+				JSONTag: "due_date"
+				DueDate : if $$IsEmpty:@AllocDate then $Date + 1 else @AllocDate + 1 
+				AllocDate : $LedgerEntries[1,@@IsDebtorCreditor].BillAllocations[1].BillCreditPeriod
+
+			[Field: SI_currency]
+				
+				Set as: "INR"
+				JSONTag: "currency"
+
+			[Field: SI_base_total]
+				
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "base_total"
+
+			[Field: SI_gst_category]
+				
+				Set as: if $GSTRegistrationType = "Regular" then "Registered Regular" else + 
+						If $GSTRegistrationType = "Composition" then "Registered Composition" else + 
+						If $GSTRegistrationType = "Consumer" then "Consumer" else + 
+						If $GSTRegistrationType = "Unregistered" then "Unregistered" else ""
+						
+				JSONTag : "gst_category"
+
+			[Field: SI_debit_to]
+				
+				Set as: $PartyLedgerName + " - " + @@EnableERPNextCmpAbbr
+				JSONTag: "debit_to"
+				Invisible: Yes
+
+			[Field: SI_remarks]
+				
+				Set as: $Narration
+				JSONTag: "remarks"
+
+			[Field: SI_webstatus_docname]
+				
+				Set as: if $$IsEmpty:$WebStatus_DocName then "NA" else $WebStatus_DocName
+				JSONTag: "webstatus_docname"
+				
+			[Field: SI_tally_masterid]
+				
+				Set as: $masterid
+				JSONTag: "tally_masterid"
+
+			[Field: SI_vouchernumber]
+				
+				Set as: $vouchernumber
+				JSONTag: "tally_voucherno"
+			
+			[Field: SI_set_posting_time]
+				
+				Set as: 1
+				JSONTag: "set_posting_time"
+
+			[Field: SI_update_stock]
+				
+				Set as: 0
+				JSONTag: "update_stock"
+				Invisible: Yes
+
+			[Field: SI_is_return]
+				
+				Type: Number
+				Set as: If $$IsCreditNote:$VoucherTypeName then 1 else 0
+				JSONTag: "is_return"
+				Invisible: Yes
+				
+			[Field: SI_source_warehouse]
+				
+				Set as: @LocForm + " - " + @@EnableERPNextCmpAbbr
+				LocForm : $InventoryEntries[1].BatchAllocations[1].GodownNAme
+				JSONTag: "source_warehouse"
+				Invisible: Yes
+
+			[Field: SI_checked_by]
+				
+				Set as: $Salesman
+				JSONTag: "goods_checked_by"
+
+			[Field: SI_arranged_by]
+
+				Set as: $arrangeby
+				JSONTag: "goods_arranged_by"
+
+			[Field: SI_noted_by]
+				
+				Set as: $OrderNotedby
+				JSONTag: "order_noted_by_"
+
+			[Field: SI_electrician]
+
+				Set as: $ElectricianNameonBill
+				JSONTag: "electrician"
+				
+			[Field: SI_BiltyNumber]
+				
+				Set as: $$String:$BiltyNumber + " X " + $$String:$BiltyPackages + " " + $$String:$BiltyPackageUnit
+				JSONTag: "lr_no"
+				
+			[Field: SI_BillofLadingDate]
+				
+				Set as: if $$IsEmpty:$BillofLadingDate then "" else $$GetSqlDate:$BillofLadingDate
+				JSONTag: "lr_date"
+				
+			[Field: SI_BasicShipVesselNo]
+				
+				Set as: $BasicShipVesselNo
+				JSONTag: "vehicle_no"
+				
+			[Field: SI_BasicShippedBy]
+				
+				Set as: if $$IsEmpty:($NAme:Ledger:$BasicShippedBy) then "" else $NAme:Ledger:$BasicShippedBy
+				JSONTag: "transporter"
+				
+
+			[Field: SI_IRNAckNo]
+				
+				Set as: $IRNAckNo
+				JSONTag : "ack_no"
+				
+			[Field: SI_IRNAckDate]
+				
+				Set as: $$GetSqlDate:$IRNAckDate
+				JSONTag: "ack_date"
+				
+			[Field: SI_IRN]
+				
+				Set as: $Irn
+				JSONTag: "irn"
+				
+;			[Field: SI_IRNQRCode]
+;				
+;				Set as: $IRNQRCode
+;
+;			[Field: SI_IRNCancelled]
+;				
+;				Set as: $IRNCancelled
+;				
+;			[Field: SI_IRNCancelReason]
+;				
+;				Set as: $IRNCancelReason
+;				
+;			[Field: SI_IRNCancelDate]
+;				
+;				Set as: $IRNCancelDate
+;				
+;			[Field: SI_IRNCancelCode]
+;
+;				Set as: $IRNCancelCode
+
+
+			[Field: SI_eWayBillNumber]
+				
+				Set as: $EWAYBILLDETAILS[1].BILLNUMBER
+				JSONTag: "ewaybill"
+
+
+
+	[Part: SI_items]
+		
+		Line: SI_items 
+		Repeat: SI_items  : InventoryEntries
+		Scroll: Vertical
+				
+		[Line: SI_items]
+			
+			Field: SI_item_code, SI_item_name, SI_description, SI_gst_hsn_code, SI_item_group, SI_qty, SI_stock_qty, SI_actual_qty, SI_uom, SI_stock_uom, SI_conversion_factor, SI_rate, SI_base_rate
+			Field: SI_amount, SI_base_amount, SI_income_account, SI_warehouse, SI_cost_center, SI_item_tax_template
+			Field: SI_base_price_list_rate, SI_discount_percentage, SI_price_list_rate
+			JSONTag: "items"
+			
+			[Field: SI_item_code]
+				
+				JSONTag : "item_code"
+				Set as: if $$IsEmpty:$Item_Alias:StockItem:$StockItemName and $$IsEmpty:$partno:StockItem:$StockItemName then $MasterId:StockItem:$StockItemName else if $$IsEmpty:$Item_Alias:StockItem:$StockItemName then $partno:StockItem:$StockItemName else $Item_Alias:StockItem:$StockItemName
+
+			[Field: SI_item_name]
+				
+				Set as: $StockItemNAme
+				JSONTag: "item_name"
+				
+			[Field: SI_description]
+
+				Set as: $StockItemName
+				JSONTag: "description"
+
+			[Field: SI_gst_hsn_code]
+				
+				JSONTag: "gst_hsn_code"
+				Set as	 : @HSNCode
+				HSNCode  : $(GSTCLASSIFICATION, @GSTClassification).GSTDetails[Last].HSNCode
+				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:$StockItemName) then $Classification_Name:StockGroup:$Parent:StockItem:$StockItemName else $Classification_Name:StockItem:$StockItemName
+
+			[Field: SI_item_group]
+				
+				JSONTag: "item_group"
+				Set as: $Parent:StockItem:$StockItemName
+
+			[Field: SI_qty]
+
+				Type: Number
+				Set as: if $IsSimpleUnit:Unit:$BaseUnits:StockItem:$StockItemNAme then $BilledQty else $$Number:@TailUnits / $Conversion:Unit:$BaseUnits:StockItem:$StockItemName ;$BilledQty ; if $$IsCreditNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
+				JSONTag: "qty"
+				TailUnits: $$String:$BilledQty:"TailUnits,NoSymbol"
+				
+			[Field: SI_stock_qty]
+
+				Type: Number
+				Set as: $BilledQty
+				JSONTag: "stock_qty"
+				Invisible: Yes
+				
+			[Field: SI_actual_qty]
+				
+				Type: Number
+				Set as: $$Number:$BilledQty * -1
+				JSONTag  : "actual_qty"
+				Invisible: Yes
+
+			[Field: SI_uom]
+
+				Set as: $BaseUnits:StockItem:$StockItemName
+				JSONTag: "uom"
+
+			[Field: SI_stock_uom]
+
+				Set as: $BaseUnits:StockItem:$StockItemName
+				JSONTag: "stock_uom"
+
+			[Field: SI_conversion_factor]
+				
+				Set as: "1"
+				JSONTag: "conversion_factor"
+
+			[Field: SI_rate]
+
+				Type: Number
+				Set as: @LocForm
+				LocForm : $$Number:#SI_base_amount / $$Number:#SI_qty
+				JSONTag: "rate"
+				Format: "Decimal:3"
+
+			[Field: SI_base_rate]
+
+				Type: Number
+				Set as: $Amount  / $$Number:$billedqty
+				JSONTag: "base_rate"
+				Format: "Decimal:3"
+
+			[Field: SI_amount]
+
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "amount"
+				Format: "Decimal:3"
+				
+
+			[Field: SI_base_amount]
+
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "base_amount"
+				Format: "Decimal:3"
+
+			[Field: SI_income_account]
+
+				Set as: "Sales" + " - " + @@EnableERPNextCmpAbbr
+				JSONTag: "income_account"
+
+			[Field: SI_warehouse]
+
+				Set as: $BatchAllocations[1].godownName + " - " +@@EnableERPNextCmpAbbr
+				JSONTag: "warehouse"
+
+			[Field: SI_cost_center]
+
+				Set as: "Main - " + @@EnableERPNextCmpAbbr
+				JSONTag: "cost_center"
+
+			[Field: SI_selling_price_list]
+
+				Set as: if $$IsEmpty:$PriceLevel then "Standard Selling" else $PriceLevel
+				JSONTag: "selling_price_list"
+
+			[Field: SI_item_tax_template]
+				
+				JSONTag: "item_tax_template"
+				Set as: If $GSTTransNature contains "Interstate" then +
+							"Interstate GST @"+ $$String:@IGSTRate +"% - " + @@EnableERPNextCmpAbbr else +
+							"Local GST @"+ $$String:@IGSTRate +"% - " + @@EnableERPNextCmpAbbr
+				IGSTRate : $GST_Rate:GSTCLASSIFICATION:@GSTClassification
+				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:$StockItemName) then $Classification_Name:StockGroup:($Parent:StockItem:$StockItemName) else $Classification_Name:StockItem:$StockItemName
+		
+
+			[Field: SI_base_price_list_rate]
+				
+				Type: Number
+				JSONTag: "base_price_list_rate"
+				Set as: $rate
+				
+			[Field: SI_discount_percentage]
+				
+				Type: Number
+				JSONTag: "discount_percentage"
+				Set as: $discount
+
+			[Field: SI_price_list_rate]
+
+				Type: Number
+				JSONTag: "price_list_rate"
+				Set as: $rate
+				
+
+	[Part: SI_ledgers]
+		
+		Line: SI_ledgers 
+		Repeat: SI_ledgers  : LedgerEntries
+		Scroll: Vertical
+				
+		[Line: SI_ledgers]
+			;SILed_rate
+			Field: SILed_charge_type, SILed_row_id, SILed_account_head, SILed_tax_base_amount, SILed_base_tax_amount_after_discount_amount ,SILed_description, SILed_cost_center
+			Field: SILed_tax_amount, SILed_base_total
+			Field: SILed_tax_amount_after_discount_amount
+			JSONTag: "taxes"
+			Remove if: $LedgerName = $PartyLEdgerName or $$IsEmpty:$Amount or $VatDealerNature:Ledger:$LedgerName = "Invoice Rounding"
+			
+			[Field: SILed_charge_type]
+				
+				Set as: @@charge_type
+;				"On Net Total"
+				JSONTag: "charge_type"
+
+			[Field: SILed_row_id]
+				
+				Set as: @@row_id
+				JSONTag: "row_id"
+
+			[Field: SILed_account_head]
+				
+				Set as: @LedgerName + " - " + @@EnableERPNextCmpAbbr
+				LedgerName : if $LedgerName = "OUTPUT TAX CGST" then "Output Tax CGST" else +
+							 if $LedgerName = "OUTPUT TAX SGST" then "Output Tax SGST" else +
+							 if $LedgerName = "OUTPUT TAX IGST" then "Output Tax IGST" else $LedgerName
+ 				JSONTag: "account_head"
+
+			[Field:SILed_description]
+
+				Set as: $LedgerName
+				JSONTag: "description"
+				
+			[Field: SILed_rate]
+				
+				Set as: "0"
+				JSONTag: "rate"
+
+			[Field: SILed_cost_center]
+
+				Set as: "Main - " + @@EnableERPNextCmpAbbr
+				JSONTag: "cost_center"
+
+			[Field: SILed_tax_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount
+				JSONTag: "tax_amount"
+
+			[Field: SILed_tax_base_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount
+				JSONTag: "base_tax_amount"
+				
+			[Field: SILed_tax_amount_after_discount_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount
+				JSONTag: "tax_amount_after_discount_amount"
+				
+			[Field: SILed_base_tax_amount_after_discount_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount
+				JSONTag: "base_tax_amount_after_discount_amount"
+
+			[Field: SILed_base_total]
+				
+				Type: Number
+				Set as: $$CollNumTotal:InventoryEntries:$Amount
+				JSONTag: "base_total"
+				Format: "Decimal:3"
+
+
+[Collection: SEND_SalesInvoice_Tally]
+
+	Type		: Vouchers : VoucherType
+	Child Of	: $$VchTypeSales
+	Belongs To	: Yes
+	Filter 		: WebStatus
+	Fetch: VoucherTypeName, PartyLedgerNAme ,Date, Narration, Amount, WebStatus_DocName
+	Fetch: LedgerEntries.LedgerName, LedgerEntries.Amount
+	Fetch: InventoryEntries.StockItemName, InventoryEntries.BilledQty, InventoryEntries.Rate, InventoryEntries.Amount
+	Fetch: Salesman, arrangeby, OrderNotedby, ElectricianNameonBill
+	Fetch: BiltyNumber, BiltyPackages, BiltyPackageUnit, BillofLadingDate, BasicShipVesselNo, BasicShippedBy
+	Fetch: IRNAckNo,IRNAckDate,Irn,IRNQRCode,IRNCancelled,IRNCancelReason,IRNCancelDate,IRNCancelCode
+	Fetch: EWAYBILLDETAILS.BILLNUMBER
+	Filter: NonCancelled
+	Filter: NonOptional
+	Filter: NonZeroEntries
+	
+	
+	[System: Formula]
+		
+;		OnlyChallanVchType : $VoucherTypeName = "Challan"
+		NonCancelled 	: NOT $IsCancelled
+		NonOptional		: NOT $IsOptional 
+		NonZeroEntries 	: NOT $$IsEmpty:$Amount
+		
+		charge_type : If $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName Not In ("GST") +
+						then "Actual"+
+						else if $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName In ("GST") +
+						then "On Previous Row Total" +
+						else if $TaxType:Ledger:$LedgerName = "TCS" +
+						then "Actual" else "On Net Total"
+	
+		row_id		: If $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName Not In ("GST") +
+						then ""+
+						else if $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName In ("GST") +
+						then $$String:$().HasDiscOrCartage +
+						else if $TaxType:Ledger:$LedgerName = "TCS" +
+						then "" else ""
+
+
+
+;		charge_type : If $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName Not In ("GST", "TCS") +
+;						then "Actual"+
+;						else if $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName In ("GST", "TCS") +
+;						then "On Previous Row Total" +
+;						else if $TaxType:Ledger:$LedgerName = "TCS" +
+;						then "Actual" else "On Net Total"
+;	
+;		row_id		: If $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName Not In ("GST", "TCS") +
+;						then ""+
+;						else if $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName In ("GST", "TCS") +
+;						then $$String:$().HasDiscOrCartage +
+;						else if $TaxType:Ledger:$LedgerName = "TCS" +
+;						then "" else ""
+
+
+[#Object: Voucher]
+	
+	HasDiscOrCartage : @@HasDiscOrCartage
+
+[System: Formula]
+	
+	HasDiscOrCartage : $$FilterCount:LedgerEntries:HasDiscOrCartageFilter
+	HasDiscOrCartageFilter :  Not $$IsEmpty:$Amount AND $TaxType:Ledger:$LedgerName Not In ("GST", "TCS") +
+								AND $VatDealerNature:Ledger:$LedgerName != "Invoice Rounding" +
+								AND $LedgerName != $PartyLedgerName and $$IsNotApplicable:$GSTApplicable:Ledger:$LedgerName
+
+;	HasDiscOrCartage : $$FilterAmtTotal:LedgerEntries:HasDiscOrCartageFilter:$Amount 
+;	HasDiscOrCartageFilter : $TaxType:Ledger:$LedgerName Not In ("GST", "TCS") AND $VatDealerNature:Ledger:$LedgerName != "Invoice Rounding" AND $LedgerName != $PartyLedgerName
+
+;[#Field: VCHNarration]
+;	
+;	Set as: $HasDiscOrCartage
+	
+[#Form: Voucher]
+
+	Add : Option : LedgerWebStatus
+
+
+;;;; Send Single Voucher 
+;[#Form: Voucher]
+;	
+;	Add : Option : Voucher_One : $$InDeveloperMode
+;	
+;	[!Form: Voucher_One]
+;
+;		Add: Button: SEND_SalesInvoice_One
+;	
+;	[Button: SEND_SalesInvoice_One]
+;
+;		Title: "Send to ERPNext"
+;		Key: Alt + R
+;		Action: Call: SEND_SalesInvoice_One:$MasterId
+;	
+;[Function: SEND_SalesInvoice_One]
+;	
+;	Parameter: vMasterID : String
+;
+;	Variable : vName  : String
+;	Variable: vMessage : String
+;	Variable: vDocName : String
+;	Variable: vStatus : Logical
+;	
+;	09 : Start Progress: 1 : "Sending Sales Invoices" : ""
+;
+;	10 : Walk Collection: SEND_SalesInvoice_One
+;	12 : 	Set: vStatus : $Status
+;	20 : 	If: ##vStatus
+;	21 :	Start Batch Post
+;	25 : 		Walk Collection: data
+;	26 : 		Log: $name
+;	28 : 		Set: vName : "ID:"+$name
+;	28a:		Set: vDocName : $docname
+;	29 : 		Set: vMessage : $message
+;	30 : 			Modify Object: (Voucher, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+;	32 : 			Modify Object: (Voucher, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+;	33 : 			Modify Object: (Voucher, ##vName).WebStatus_DocName[1].WebStatus_DocName : ##vDocName
+;	40 :		End Walk
+;	42 :	End Batch Post
+;	45 : 	End If
+;	60 : End Walk
+;	
+;[Collection: SEND_SalesInvoice_One]
+;		
+;	Export Header	: "Accept: application/json"
+;	Export Header	: "Accept-Charset: utf-8"
+;	Export Header	: "Authorization: " + "token " + @@AuthToken
+;
+;	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.voucher'
+;
+;	RemoteRequest: SEND_SalesInvoice_One : UTF8
+;	JSON Object Path: "message:1"
+;
+;[Report : SEND_SalesInvoice_One]
+;	
+;	Local: Collection: SEND_SalesInvoice_Tally : Add: Filter: SEND_SalesInvoice_One
+;	
+;[Form: SEND_SalesInvoice_One]
+;	
+;	Use: SEND_SalesInvoice
+;	Delete: XMLTag
+;	
+;	[System: Formula]
+;		
+;		SEND_SalesInvoice_One : $$String:$MasterID = $$String:##vMasterId
+

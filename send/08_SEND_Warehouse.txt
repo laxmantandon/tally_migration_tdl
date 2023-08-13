@@ -1,0 +1,103 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_Warehouse]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.warehouse'
+
+	RemoteRequest: SEND_Warehouse : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;	Add: Item: Send Warehouse: Call: SEND_Warehouse
+
+
+[Function: SEND_Warehouse]
+
+	Variable : vName  : String
+	Variable : vMessage : String
+	
+	10 : Walk Collection: SEND_Warehouse
+	20 : 	If: $Status
+	22 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Godown, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 :			Modify Object: (Godown, ##vName).WebStatus_message[1].WebStatus_message : ##vMessage
+	40 :		End Walk
+	45 : 	End Batch Post
+	50 : 	End If
+	60 : End Walk
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Request - Custoemr Group  : Display: SEND_CustomerGroup
+
+[Report : SEND_Warehouse]
+	
+	Form: SEND_Warehouse
+	
+	[Form: SEND_Warehouse]
+		
+		Part: SEND_Warehouse
+		Delete: XMLTag
+
+	[Part: SEND_Warehouse]
+		
+		Line: SEND_Warehouse
+		Repeat: SEND_Warehouse : SEND_Warehouse_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_Warehouse]
+			
+			Field: SEND_Warehouse, SEND_Warehouse_IsGroup, SEND_Warehouse_dotype, SEND_Warehouse_PrimaryGroup,SEND_Warehouse_company
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+			
+			[Field: SEND_Warehouse]
+				
+				Set as: $Name
+				JSONTag: "warehouse_name"
+				
+			[Field: SEND_Warehouse_IsGroup]
+				
+				Set as: If $$NumItems:SEND_Warehouse_HasNodeColl > 1 then 1 else 0
+				JSONTag: "is_group"
+				Type: Number
+				
+					[Collection : SEND_Warehouse_HasNodeColl]
+						
+						Type: Godown
+						Child Of: $Name
+						Belongs To: Yes
+				
+			[Field: SEND_Warehouse_dotype]
+				
+				Set as: "Warehouse"
+				JSONTag: "doctype"
+
+			[Field: SEND_Warehouse_PrimaryGroup]
+			                                                                                                                                                                                                       	
+				Set as: if $depth <= 1 then "All Warehouses - "+@@EnableERPNextCmpAbbr else $Parent
+				JSONTag : "parent_warehouse"
+
+			[Field: SEND_Warehouse_company]
+			                                                                                                                                                                                                       	
+				Set as: @@ERPNextBranch
+				JSONTag : "company"
+
+
+[Collection: SEND_Warehouse_Tally]
+	
+	Type: Godown
+	Belongs To: Yes
+	Sort: @@Default : $depth
+	Filter : WebStatus

@@ -1,0 +1,579 @@
+;; Shivgoraksh
+
+[Collection: SEND_CreditNoteInvoice]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.voucher'
+
+	RemoteRequest: SEND_CreditNoteInvoice : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item : Send CreditNoteInvoice One : Call: SEND_CreditNoteInvoice
+;	Add: Item: Send CreditNoteInvoice_Cont : Call: SEND_CreditNoteInvoice_Start
+
+	[Function: SEND_CreditNoteInvoice_Start]
+		
+		10 : Start Timer: SEND_CreditNoteInvoice_Timer : 1
+		
+	[System: Events]
+		
+		SEND_CreditNoteInvoice_Timer : Timer: True: Call: SEND_CreditNoteInvoice
+
+[Function: SEND_CreditNoteInvoice]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+	Variable: vDocName : String
+	Variable: vStatus : Logical
+
+
+	06 : Do If: ($$NumItems:SEND_CreditNoteInvoice_Tally = 0) :  Stop Timer: SEND_CreditNoteInvoice_Timer
+	07 : Do If: ($$NumItems:SEND_CreditNoteInvoice_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_CreditNoteInvoice_Timer
+	09 : Start Progress: 1 : "Sending CreditNote Invoices" : ""
+
+	10 : Walk Collection: SEND_CreditNoteInvoice
+	12 : 	Set: vStatus : $Status
+	20 : 	If: ##vStatus
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : "ID:"+$name
+	28a:		Set: vDocName : $docname
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Voucher, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (Voucher, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	33 : 			Modify Object: (Voucher, ##vName).WebStatus_DocName[1].WebStatus_DocName : ##vDocName
+	40 :		End Walk
+	42 :	End Batch Post
+	45 : 	End If
+	60 : End Walk
+	
+	65 : Do If: ($$NumItems:SEND_CreditNoteInvoice_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_CreditNoteInvoice_Timer : 1
+
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: CreditNoteInvoice:TEst1 : Display: SEND_CreditNoteInvoice
+
+[Report : SEND_CreditNoteInvoice]
+	
+	Form: SEND_CreditNoteInvoice
+
+	[Form: SEND_CreditNoteInvoice]
+		
+		Part: SEND_CreditNoteInvoice
+		Delete: XMLTag
+
+	[Part: SEND_CreditNoteInvoice]
+		
+		Line: SEND_CreditNoteInvoice
+		Repeat: SEND_CreditNoteInvoice : SEND_CreditNoteInvoice_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_CreditNoteInvoice]
+			;CN_debit_to
+			Field: CN_doctype, CN_naming_series, CN_customer, CN_company, CN_posting_date,CN_posting_time, CN_due_date, CN_currency
+			Field: CN_gst_category, CN_remarks, CN_webstatus_docname, CN_tally_masterid, CN_vouchernumber
+			Field: CN_checked_by, CN_arranged_by, CN_noted_by, CN_electrician, CN_BiltyNumber, CN_BillofLadingDate, CN_BasicShipVesselNo
+			Field: CN_BasicShippedBy
+			Field: CN_IRNAckNo, CN_IRNAckDate, CN_IRN, CN_eWayBillNumber
+			Field: CN_set_posting_time, CN_update_stock
+			Field: CN_is_return, CN_source_warehouse
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit	
+			Explode: CN_items
+			Explode: CN_ledgers
+
+			[Field: CN_doctype]
+				
+				Set as: "Sales Invoice"
+				JSONTag: "doctype"
+
+			[Field: CN_naming_series]
+				
+				Set as: @@ERPNextNamingSeries
+				JSONTag: "naming_series"
+
+			[Field: CN_customer]
+				
+				Set as:$PartyLedgerName
+				JSONTag: "customer"
+				
+			[Field: CN_company]
+				
+				Set as: @@ERPNextBranch
+				JSONTag: "company"
+
+			[Field: CN_posting_date]
+				
+				Set as: $$GetSqlDate:$Date
+				JSONTag: "posting_date"
+
+			[Field: CN_posting_time]
+				
+				Set as: $$MachineTime
+				JSONTag: "posting_time"
+
+			[Field: CN_due_date]
+				
+				Set as: $$GetSqlDate:@DueDate
+				JSONTag: "due_date"
+				DueDate : if $$IsEmpty:@AllocDate then $Date + 1 else @AllocDate + 1 
+				AllocDate : $LedgerEntries[1,@@IsDebtorCreditor].BillAllocations[1].BillCreditPeriod
+
+			[Field: CN_currency]
+				
+				Set as: "INR"
+				JSONTag: "currency"
+
+			[Field: CN_base_total]
+				
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "base_total"
+
+			[Field: CN_gst_category]
+				
+				Set as: if $GSTRegistrationType = "Regular" then "Registered Regular" else + 
+						If $GSTRegistrationType = "Composition" then "Registered Composition" else + 
+						If $GSTRegistrationType = "Consumer" then "Consumer" else + 
+						If $GSTRegistrationType = "Unregistered" then "Unregistered" else ""
+						
+				JSONTag : "gst_category"
+
+			[Field: CN_debit_to]
+				
+				Set as: $PartyLedgerName + " - " + @@EnableERPNextCmpAbbr
+				JSONTag: "debit_to"
+				Invisible: Yes
+
+			[Field: CN_remarks]
+				
+				Set as: $Narration
+				JSONTag: "remarks"
+
+			[Field: CN_webstatus_docname]
+				
+				Set as: if $$IsEmpty:$WebStatus_DocName then "NA" else $WebStatus_DocName
+				JSONTag: "webstatus_docname"
+				
+			[Field: CN_tally_masterid]
+				
+				Set as: $masterid
+				JSONTag: "tally_masterid"
+
+			[Field: CN_vouchernumber]
+				
+				Set as: $vouchernumber
+				JSONTag: "tally_voucherno"
+			
+			[Field: CN_set_posting_time]
+				
+				Set as: 1
+				JSONTag: "set_posting_time"
+
+			[Field: CN_update_stock]
+				
+				Set as: 0
+				JSONTag: "update_stock"
+				Invisible: Yes
+
+			[Field: CN_is_return]
+				
+				Type: Number
+				Set as: If $$IsCreditNote:$VoucherTypeName then 1 else 0
+				JSONTag: "is_return"
+				
+			[Field: CN_source_warehouse]
+				
+				Set as: @LocForm + " - " + @@EnableERPNextCmpAbbr
+				LocForm : $InventoryEntries[1].BatchAllocations[1].GodownNAme
+				JSONTag: "source_warehouse"
+				Invisible: Yes
+
+			[Field: CN_checked_by]
+				
+				Set as: $CreditNoteman
+				JSONTag: "goods_checked_by"
+
+			[Field: CN_arranged_by]
+
+				Set as: $arrangeby
+				JSONTag: "goods_arranged_by"
+
+			[Field: CN_noted_by]
+				
+				Set as: $OrderNotedby
+				JSONTag: "order_noted_by_"
+
+			[Field: CN_electrician]
+
+				Set as: $ElectricianNameonBill
+				JSONTag: "electrician"
+				
+			[Field: CN_BiltyNumber]
+				
+				Set as: $$String:$BiltyNumber + " X " + $$String:$BiltyPackages + " " + $$String:$BiltyPackageUnit
+				JSONTag: "lr_no"
+				
+			[Field: CN_BillofLadingDate]
+				
+				Set as: if $$IsEmpty:$BillofLadingDate then "" else $$GetSqlDate:$BillofLadingDate
+				JSONTag: "lr_date"
+				
+			[Field: CN_BasicShipVesselNo]
+				
+				Set as: $BasicShipVesselNo
+				JSONTag: "vehicle_no"
+				
+			[Field: CN_BasicShippedBy]
+				
+				Set as: if $$IsEmpty:($NAme:Ledger:$BasicShippedBy) then "" else $NAme:Ledger:$BasicShippedBy
+				JSONTag: "transporter"
+				
+
+			[Field: CN_IRNAckNo]
+				
+				Set as: $IRNAckNo
+				JSONTag : "ack_no"
+				
+			[Field: CN_IRNAckDate]
+				
+				Set as: $$GetSqlDate:$IRNAckDate
+				JSONTag: "ack_date"
+				
+			[Field: CN_IRN]
+				
+				Set as: $Irn
+				JSONTag: "irn"
+				
+;			[Field: CN_IRNQRCode]
+;				
+;				Set as: $IRNQRCode
+;
+;			[Field: CN_IRNCancelled]
+;				
+;				Set as: $IRNCancelled
+;				
+;			[Field: CN_IRNCancelReason]
+;				
+;				Set as: $IRNCancelReason
+;				
+;			[Field: CN_IRNCancelDate]
+;				
+;				Set as: $IRNCancelDate
+;				
+;			[Field: CN_IRNCancelCode]
+;
+;				Set as: $IRNCancelCode
+
+
+			[Field: CN_eWayBillNumber]
+				
+				Set as: $EWAYBILLDETAILS[1].BILLNUMBER
+				JSONTag: "ewaybill"
+
+
+	[#Object: Voucher]
+		
+		Has_Items : $$NumItems:Inventoryentries > 0
+
+
+	[Part: CN_items]
+		
+		Line: CN_items 
+		Option: CI_items_led : Not $Has_Items
+		Option: CI_items_item : $Has_Items
+
+		[!Part: CI_items_led]
+
+			Repeat: CN_items  : LedgerEntries
+			Scroll: Vertical
+			Local: Line: CN_items : Remove if: NOt ($$IsLedOfGrp:$LedgerName:$$GroupDirectIncomes OR $$IsLedOfGrp:$LedgerName:$$GroupInDirectIncomes)
+
+			Local: Line: CN_items : Local: Field: CN_item_code : Set as: $LedgerName
+			Local: Line: CN_items : Local: Field: CN_item_name : Set as: $LedgerName
+			Local: Line: CN_items : Local: Field: CN_description : Set as: $LedgerName
+			Local: Line: CN_items : Local: Field: CN_qty : Set as: -1
+			Local: Line: CN_items : Local: Field: CN_rate : Set as: #CN_amount
+			Local: Line: CN_items : Local: Field: CN_base_rate: Set as: #CN_amount
+			Local: Line: CN_items : Local: Field: CN_income_account: Set as: $LedgerName + " - " + @@EnableERPNextCmpAbbr
+			Local: Line: CN_items : Local: Field: CN_base_price_list_rate : Set as: #CN_amount
+			Local: Line: CN_items : Local: Field: CN_price_list_rate : Set as: #CN_amount
+			Local: Line: CN_items : Local: Field: CN_gst_hsn_code : Set as: $item_hsn_code:Ledger:$LedgerNAme
+			Local: Line: CN_items : Local: Field: CN_item_tax_template : Set as: If $GSTTransNature contains "Interstate" then +
+							"Interstate GST @"+ $$String:@@IGSTRateLed +"% - " + @@EnableERPNextCmpAbbr else +
+							"Local GST @"+ $$String:@@IGSTRateLed +"% - " + @@EnableERPNextCmpAbbr
+				
+			[System: Formula]
+				
+				IGSTRateLed : $item_gst_rate:Ledger:$LedgerName
+
+
+		[!Part: CI_items_item]
+
+			Repeat: CN_items  : InventoryEntries
+			Scroll: Vertical
+
+		[Line: CN_items]
+			
+			Field: CN_item_code, CN_item_name, CN_description, CN_gst_hsn_code, CN_item_group, CN_qty, CN_stock_qty, CN_actual_qty, CN_uom, CN_stock_uom, CN_conversion_factor, CN_rate, CN_base_rate
+			Field: CN_amount, CN_base_amount, CN_income_account, CN_warehouse, CN_cost_center, CN_item_tax_template
+			Field: CN_base_price_list_rate, CN_discount_percentage, CN_price_list_rate
+			JSONTag: "items"
+			
+			[Field: CN_item_code]
+				
+				JSONTag : "item_code"
+				Set as: if $$IsEmpty:$Item_Alias:StockItem:$StockItemName and $$IsEmpty:$partno:StockItem:$StockItemName then $MasterId:StockItem:$StockItemName else if $$IsEmpty:$Item_Alias:StockItem:$StockItemName then $partno:StockItem:$StockItemName else $Item_Alias:StockItem:$StockItemName
+
+			[Field: CN_item_name]
+				
+				Set as: $StockItemNAme
+				JSONTag: "item_name"
+				
+			[Field: CN_description]
+
+				Set as: $StockItemName
+				JSONTag: "description"
+
+			[Field: CN_gst_hsn_code]
+				
+				JSONTag: "gst_hsn_code"
+				Set as	 : @HSNCode
+				HSNCode  : $(GSTCLASSIFICATION, @GSTClassification).GSTDetails[Last].HSNCode
+				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:$StockItemName) then $Classification_Name:StockGroup:$Parent:StockItem:$StockItemName else $Classification_Name:StockItem:$StockItemName
+
+			[Field: CN_item_group]
+				
+				JSONTag: "item_group"
+				Set as: $Parent:StockItem:$StockItemName
+
+			[Field: CN_qty]
+
+				Type: Number
+				Set as: @Locform * -1
+				LocForm : if $IsSimpleUnit:Unit:$BaseUnits:StockItem:$StockItemNAme then $BilledQty else $$Number:@TailUnits / $Conversion:Unit:$BaseUnits:StockItem:$StockItemName ;$BilledQty ; if $$IsCreditNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
+				JSONTag: "qty"
+				TailUnits: $$String:$BilledQty:"TailUnits,NoSymbol"
+
+;				Type: Number
+;				Set as: $BilledQty * -1 ; if $$IsCreditNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
+;				JSONTag: "qty"
+				
+			[Field: CN_stock_qty]
+
+				Type: Number
+				Set as: $BilledQty * -1
+				JSONTag: "stock_qty"
+				Invisible: Yes
+				
+			[Field: CN_actual_qty]
+				
+				Type: Number
+				Set as: $$Number:$BilledQty * -1
+				JSONTag  : "actual_qty"
+				Invisible: Yes
+
+			[Field: CN_uom]
+
+				Set as: $BaseUnits:StockItem:$StockItemName
+				JSONTag: "uom"
+
+			[Field: CN_stock_uom]
+
+				Set as: $BaseUnits:StockItem:$StockItemName
+				JSONTag: "stock_uom"
+
+			[Field: CN_conversion_factor]
+				
+				Set as: "1"
+				JSONTag: "conversion_factor"
+
+			[Field: CN_rate]
+
+				Type: Number
+				Set as: @LocForm
+				LocForm : $$Number:#CN_base_amount / $$Number:$$Abs:#CN_qty
+				JSONTag: "rate"
+				Format: "Decimal:3"
+
+			[Field: CN_base_rate]
+
+				Type: Number
+				Set as: $Amount  / $$Number:$billedqty
+				JSONTag: "base_rate"
+				Format: "Decimal:3"
+
+			[Field: CN_amount]
+
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "amount"
+				Format: "Decimal:3"
+				
+
+			[Field: CN_base_amount]
+
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "base_amount"
+				Format: "Decimal:3"
+
+			[Field: CN_income_account]
+
+				Set as: $AccountingAllocations[1].LedgerName + " - " + @@EnableERPNextCmpAbbr
+				JSONTag: "income_account"
+
+			[Field: CN_warehouse]
+
+				Set as: $BatchAllocations[1].godownName + " - " +@@EnableERPNextCmpAbbr
+				JSONTag: "warehouse"
+
+			[Field: CN_cost_center]
+
+				Set as: "Main - " + @@EnableERPNextCmpAbbr
+				JSONTag: "cost_center"
+
+			[Field: CN_selling_price_list]
+
+				Set as: if $$IsEmpty:$PriceLevel then "Standard Selling" else $PriceLevel
+				JSONTag: "selling_price_list"
+
+			[Field: CN_item_tax_template]
+				
+				JSONTag: "item_tax_template"
+				Set as: If $GSTTransNature contains "Interstate" then +
+							"Interstate GST @"+ $$String:@IGSTRate +"% - " + @@EnableERPNextCmpAbbr else +
+							"Local GST @"+ $$String:@IGSTRate +"% - " + @@EnableERPNextCmpAbbr
+				IGSTRate : $GST_Rate:GSTCLASSIFICATION:@GSTClassification
+				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:$StockItemName) then $Classification_Name:StockGroup:($Parent:StockItem:$StockItemName) else $Classification_Name:StockItem:$StockItemName
+		
+
+			[Field: CN_base_price_list_rate]
+				
+				Type: Number
+				JSONTag: "base_price_list_rate"
+				Set as: $rate
+				
+			[Field: CN_discount_percentage]
+				
+				Type: Number
+				JSONTag: "discount_percentage"
+				Set as: $discount
+
+			[Field: CN_price_list_rate]
+
+				Type: Number
+				JSONTag: "price_list_rate"
+				Set as: $rate
+				
+
+	[Part: CN_ledgers]
+		
+		Line: CN_ledgers 
+		Repeat: CN_ledgers  : LedgerEntries
+		Scroll: Vertical
+
+
+
+		[Line: CN_ledgers]
+			;SILed_rate
+			Field: CNLed_charge_type, CNLed_row_id, CNLed_account_head, CNLed_tax_base_amount, CNLed_base_tax_amount_after_discount_amount ,CNLed_description, CNLed_cost_center
+			Field: CNLed_tax_amount, CNLed_base_total
+			Field: CNLed_tax_amount_after_discount_amount
+			JSONTag: "taxes"
+			Remove if: $LedgerName = $PartyLEdgerName or $$IsEmpty:$Amount or $VatDealerNature:Ledger:$LedgerName = "Invoice Rounding" or ($$IsLedOfGrp:$LEdgerName:$$GroupDirectIncomes or $$IsLedOfGrp:$LEdgerName:$$GroupInDirectIncomes and Not $().has_items)
+			
+			[Field: CNLed_charge_type]
+				
+				Set as: @@charge_type
+;				"On Net Total"
+				JSONTag: "charge_type"
+
+			[Field: CNLed_row_id]
+				
+				Set as: @@row_id
+				JSONTag: "row_id"
+
+			[Field: CNLed_account_head]
+				
+				Set as: @LedgerName + " - " + @@EnableERPNextCmpAbbr
+				LedgerName : if $LedgerName = "Output CGST (Central Tax)" then "CGST" else +
+							 if $LedgerName = "Output SGST (State Tax)" then "SGST" else +
+							 if $LedgerName = "Output IGST (Integrated Tax)" then "IGST" else $LedgerName
+ 				JSONTag: "account_head"
+
+			[Field:CNLed_description]
+
+				Set as: $LedgerName
+				JSONTag: "description"
+				
+			[Field: CNLed_rate]
+				
+				Set as: "0"
+				JSONTag: "rate"
+
+			[Field: CNLed_cost_center]
+
+				Set as: "Main - " + @@EnableERPNextCmpAbbr
+				JSONTag: "cost_center"
+
+			[Field: CNLed_tax_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount * -1 
+				JSONTag: "tax_amount"
+
+			[Field: CNLed_tax_base_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount * -1
+				JSONTag: "base_tax_amount"
+				
+			[Field: CNLed_tax_amount_after_discount_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount * -1
+				JSONTag: "tax_amount_after_discount_amount"
+				
+			[Field: CNLed_base_tax_amount_after_discount_amount]
+				
+				Type: Number
+				Set as: $$Number:$amount * -1 
+				JSONTag: "base_tax_amount_after_discount_amount"
+
+			[Field: CNLed_base_total]
+				
+				Type: Number
+				Set as: $$CollNumTotal:InventoryEntries:$Amount
+				JSONTag: "base_total"
+				Format: "Decimal:3"
+
+
+[Collection: SEND_CreditNoteInvoice_Tally]
+
+	Type		: Vouchers : VoucherType
+	Child Of	: $$VchTypeCreditNote
+	Belongs To	: Yes
+	Filter 		: WebStatus
+;	Filter: OnlyChallanVchType
+	Fetch: VoucherTypeName, PartyLedgerNAme ,Date, Narration, Amount, WebStatus_DocName
+	Fetch: LedgerEntries.LedgerName, LedgerEntries.Amount
+	Fetch: InventoryEntries.StockItemName, InventoryEntries.BilledQty, InventoryEntries.Rate, InventoryEntries.Amount
+	Fetch: CreditNoteman, arrangeby, OrderNotedby, ElectricianNameonBill
+	Fetch: BiltyNumber, BiltyPackages, BiltyPackageUnit, BillofLadingDate, BasicShipVesselNo, BasicShippedBy
+	Fetch: IRNAckNo,IRNAckDate,Irn,IRNQRCode,IRNCancelled,IRNCancelReason,IRNCancelDate,IRNCancelCode
+	Fetch: EWAYBILLDETAILS.BILLNUMBER
+	Filter: NonCancelled
+	Filter: NonOptional
+	Filter: NonZeroEntries
+	

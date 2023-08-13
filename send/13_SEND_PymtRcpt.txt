@@ -1,0 +1,420 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_PymtRcpt]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.voucher'
+
+	RemoteRequest: SEND_PymtRcpt : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item : Send PymtRcpt : Call: SEND_PymtRcpt
+;
+;	Add: Item: Send PymtRcpt Cont : Call: SEND_PymtRcpt_Start
+
+	[Function: SEND_PymtRcpt_Start]
+		
+		10 : Start Timer: SEND_PymtRcpt_Timer : 1
+		
+	[System: Events]
+		
+		SEND_PymtRcpt_Timer : Timer: True: Call: SEND_PymtRcpt
+
+[Function: SEND_PymtRcpt]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+	Variable: vDocName : String
+	Variable: vStatus :Logical
+
+	01 : Log: "SEND_PymtRcpt function called "
+	02 : Log: $$NumItems:SEND_PymtRcpt_Tally
+	
+	06 : Do If: ($$NumItems:SEND_PymtRcpt_Tally = 0) :  Stop Timer: SEND_PymtRcpt_Timer
+	07 : Do If: ($$NumItems:SEND_PymtRcpt_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_PymtRcpt_Timer
+	09 : Start Progress: 1 : "Sending Payment / Receipt " : ""
+
+	10 : Walk Collection: SEND_PymtRcpt
+	12 : 	Set: vStatus : $Status
+	20 : 	If: $Status
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : "ID:"+$name
+	28a:		Set: vDocName : $docname
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Voucher, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (Voucher, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	33 : 			Modify Object: (Voucher, ##vName).WebStatus_DocName[1].WebStatus_DocName : ##vDocName
+	40 :		End Walk
+	42 :	End Batch Post
+	45 : 	End If
+	60 : End Walk
+	
+	65 : Do If: ($$NumItems:SEND_PymtRcpt_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_PymtRcpt_Timer : 1
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: PymtRcpt:TEst1 : Display: SEND_PymtRcpt
+
+[Report : SEND_PymtRcpt]
+	
+	Form: SEND_PymtRcpt
+	
+	[Form: SEND_PymtRcpt]
+		
+		Part: SEND_PymtRcpt
+		Delete: XMLTag
+
+	[Part: SEND_PymtRcpt]
+		
+		Line: SEND_PymtRcpt
+		Repeat: SEND_PymtRcpt : SEND_PymtRcpt_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_PymtRcpt]
+			
+			Field: PY_doctype, PY_naming_series, PY_payment_type, PY_company, PY_posting_date
+			Field: PY_party_type, PY_party, PY_paid_from, PY_paid_to, PY_paid_amount, PY_base_paid_amount, PY_received_amount, PY_base_received_amount, PY_remarks
+			Field: PY_reference_no, PY_reference_date
+			Field: PY_MasterId, PY_webstatus_docname, PY_tally_voucherno
+  			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit	
+;			Explode: PY_ledgers
+			Explode: PY_Bills
+
+			[Field: PY_doctype]
+				
+				Set as: "Payment Entry"
+				JSONTag: "doctype"
+
+			[Field: PY_naming_series]
+				
+				Set as: @@ERPNextNamingSeries
+				JSONTag: "naming_series"
+
+			[Field: PY_payment_type]
+				
+				Set as: if $$IsPayment:$VoucherTypeName then "Pay" else if $$IsReceipt:$VoucherTypeName then "Receive" else ""
+				JSONTag: "payment_type"
+				
+			[Field: PY_company]
+				
+				Set as: @@ERPNextBranch
+				JSONTag: "company"
+
+			[Field: PY_posting_date]
+				
+				Set as: $$GetSqlDate:$Date
+				JSONTag: "posting_date"
+				
+			[Field: PY_party_type]
+				
+				Set as: If $$IsPayment:$VoucherTypeName then "Supplier" else "Customer"
+				JSONTag: "party_type"
+				
+			[Field: PY_party]
+				
+				Set as: $PY_Party
+				JSONTag: "party"
+				
+			[Field: PY_paid_from]
+
+				Set as: if $$IsPayment:$VoucherTypeName then $PY_cash + " - " + @@EnableERPNextCmpAbbr else $PY_party + " - " + @@EnableERPNextCmpAbbr
+				JSONTag: "paid_from"
+
+			[Field: PY_paid_to]
+
+				Set as: if $$IsPayment:$VoucherTypeName then $PY_party + " - " + @@EnableERPNextCmpAbbr else $PY_cash + " - " + @@EnableERPNextCmpAbbr 
+				JSONTag: "paid_to"
+
+			[Field: PY_paid_amount]
+
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "paid_amount"
+
+			[Field: PY_base_paid_amount]
+
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "base_paid_amount"
+
+			[Field: PY_received_amount]
+				
+				Type: Number
+				Set as: $$Number:$Amount
+				JSONTag: "received_amount"
+
+			[Field: PY_base_received_amount]
+
+				Type: Number
+				Set as: $$Number:$amount
+				JSONTag: "base_received_amount"
+
+			[Field: PY_reference_no]
+				
+				Set as: If $$IsEmpty:@InstrumentNo then $VoucherNumber else @InstrumentNo
+				InstrumentNo : $LedgerEntries[1, @@PY_BankLed].BankAllocations[1].InstrumentNumber
+				JSONTag : "reference_no"
+				
+			[Field: PY_reference_date]
+
+				Set as: if $$IsEmpty:@InstrumentDate then $$GetSqlDate:$Date else $$GetSqlDate:@InstrumentDate
+				InstrumentDate : $LedgerEntries[1, @@PY_BankLed].BankAllocations[1].InstrumentDate
+				JSONTag: "reference_date"
+
+			[Field: PY_remarks]
+				
+				Set as: $Narration
+				JSONTag: "remarks"
+
+			[Field: PY_MasterId]
+				
+				Set as: $MasterID
+				JSONTag: "tally_masterid"
+		
+			[Field: PY_webstatus_docname]
+				
+				Set as: if $$IsEmpty:$WebStatus_DocName then "NA" else $WebStatus_DocName
+				JSONTag: "webstatus_docname"
+				
+			[Field: PY_tally_voucherno]
+				
+				Set as: $VoucherNumber
+				JSONTag: "tally_voucherno"
+
+
+
+
+;
+;	[Part: PY_ledgers]
+;		
+;		Line: PY_ledgers 
+;		Repeat: PY_ledgers  : LedgerEntries
+;		Scroll: Vertical
+;				
+;		[Line: PY_ledgers]
+;
+;			Field: PY_Account, PY_account_currency, PY_cost_center, PY_exchange_rate
+;			Field: PY_debit_in_account_currency, PY_debit, PY_credit_in_account_currency, PY_credit
+;			Field: PY_is_advance
+;			JSONTag: "accounts"
+;			
+;			[Field: PY_Account]
+;
+;				JSONTag: "account"
+;				Set as: $LedgerName +  " - " + @@EnableERPNextCmpAbbr
+;
+;			[Field: PY_account_currency]
+;
+;				JSONTag: "account_currency"
+;				Set as: "INR"
+;
+;			[Field: PY_cost_center]
+;				
+;				JSONTag: "cost_center"
+;				Set as: "Main - " + @@EnableERPNextCmpAbbr
+;
+;			[Field: PY_exchange_rate]
+;
+;				JSONTag: "exchange_rate"
+;				Set as: "1"
+;
+;			[Field: PY_debit_in_account_currency]
+;
+;				Type: Number
+;				JSONTag: "debit_in_account_currency"
+;				Set as: if $$IsDr:$Amount then $$Abs:$$Number:$Amount else 0
+;
+;			[Field: PY_debit]
+;
+;				Type: Number
+;				JSONTag: "debit"
+;				Set as: if $$IsDr:$Amount then $$Abs:$$Number:$Amount else 0
+;
+;			[Field: PY_credit_in_account_currency]
+;
+;				JSONTag: "credit_in_account_currency"
+;				Set as: if $$IsDr:$Amount then 0 else $$Abs:$$Number:$Amount
+;
+;			[Field: PY_credit]
+;
+;				JSONTag: "credit"
+;				Set as: if $$IsDr:$Amount then 0 else $$Abs:$$Number:$Amount
+;
+;			[Field: PY_is_advance]
+;
+;				JSONTag: "is_advance"
+;				Set as: "No"
+
+
+	[Part: PY_Bills]
+		
+		Line: PY_Bills
+		Repeat: PY_Bills : VchBillAllocations
+		Scroll: Vertical
+		
+		[Line: PY_Bills]
+			
+			Field: PY_Bills_allocated_amount, PY_Bills_due_date, PY_Bills_reference_doctype, PY_Bills_reference_name, PY_Bills_total_amount
+			JSONTag: "references"
+			
+			[Field: PY_Bills_allocated_amount]
+				
+				Type: Number
+				JSONTag:"allocated_amount"
+				Set as: $$Abs:$$Number:$amount
+				
+			[Field: PY_Bills_due_date]
+				
+				JSONTag:"due_date"
+				Set as: $$GetSqlDate:@Due_date
+				Due_date 	: if NOT $$IsSetByDate:$BillCreditPeriod then $$String:$BillCreditPeriod:UniversalDate else @AuxInDays
+				AuxInDays   : if $$IsEmpty:$$DueDateInDays:$BillCreditPeriod then $$GetSqlDate:$bill_date else $$DueDateInDays:$BillCreditPeriod
+
+			[Field: PY_Bills_reference_doctype]
+				
+				JSONTag: "reference_doctype"
+				Set as: $vouchertype ; IF $$IsSales:$VoucherTypeNAme then "Sales Invoice" else "Purchase Invoice"
+				
+			[Field: PY_Bills_reference_name]
+				
+				Set as: $Name
+				JSONTag: "reference_name"
+				
+			[Field: PY_Bills_total_amount]
+
+				Type: Number
+				JSONTag:"allocated_amount"
+				Set as: if NOt $$IsDr:$amount then $$Abs:$$Number:$amount else $$Abs:$$Number:$amount * -1
+
+		[Collection : VchBillAllocations]
+			
+			Source Collection: Default
+			Walk: LedgerEntries, BillAllocations
+			Compute: amount				: $Amount
+			Compute: BillCreditPeriod	: $BillCreditPeriod
+			Compute: Name				: $Name
+			Compute: bill_date			: $billdate
+			Compute: vouchertype		: if $$IsLedOfGrp:$..LedgerName:$$GroupSundryDebtors then "Sales Invoice" else "Purchase Invoice"
+
+			;Compute : vouchertype : $$GetBillVchType:$..LedgerName:$name ;if $BillDate < $BooksFrom:Company:##SVCurrentCompany then "Journal Entry" else "Purchase Invoice"
+
+;					[Function: GetBillVchType]
+;						
+;						Parameter: vLedger : String
+;						Parameter: vBill : String
+;					
+;						10 : Return: $$CollectionField:$VchType:1:GetBillVchTypeColl
+;						
+;						[System: Formula]
+;							
+;							IsSelectedBIll : ##vBill =  $Name
+;							IsBillVchType : $$IsSales:$VoucherTypeName or $$IsPurchase:$VoucherTypeName or $$IsCreditNote:$VoucherTypeName or $$IsDebitNote:$VoucherTypeName
+;							BillVoucherType : $LedgerEntries[1, @@IsBillVchType].VoucherTypeName
+							
+;					[Collection: GetBillVchTypeColl]
+;						
+;						Collection: GetBillVchTypeCollCleared, GetBillVchTypeCollPending
+;						
+;					[Collection: GetBillVchTypeCollCleared]
+;						
+;						Type: Bills
+;						Child Of: ##vLedger ;"Asian Electricals, Raipur"
+;						Cleared: Yes
+;						Compute: VchType : if $$IsEmpty:@@BillVoucherType then "Journal Entry" else if ($$IsSales:@@BillVoucherType or $$IsCreditNote:@@BillVoucherType)  then "Sales Invoice" else if ($$IsPurchase:@@BillVoucherType or $$IsDebitNote:@@BillVoucherType ) then "Purchase Invoice" else "Payment Entry"
+;						Filter: IsSelectedBIll
+;
+;					[Collection: GetBillVchTypeCollPending]
+;						
+;						Type: Bills
+;						Child Of: ##vLedger ; "Asian Electricals, Raipur"
+;						Cleared: No
+;						Compute: VchType : if $$IsEmpty:@@BillVoucherType then "Journal Entry" else if ($$IsSales:@@BillVoucherType or $$IsCreditNote:@@BillVoucherType)  then "Sales Invoice" else if ($$IsPurchase:@@BillVoucherType or $$IsDebitNote:@@BillVoucherType ) then "Purchase Invoice" else "Payment Entry"
+;						Filter: IsSelectedBIll 
+;
+
+
+[Collection: SEND_PymtRcpt_Tally]
+
+;	Collection: SEND_PymtRcpt_Tally1, SEND_Receipt_Tally
+	Collection: SEND_Receipt_Tally
+	
+[Collection: SEND_PymtRcpt_Tally1]
+
+	Type		: Vouchers : VoucherType
+	Child Of	: $$VchTypePayment
+	Belongs To	: Yes
+	Filter 		: WebStatus
+	Fetch: VoucherTypeName, PartyLedgerNAme ,Date, Narration, Amount, WebStatus_DocName
+	Fetch: LedgerEntries.LedgerName, LedgerEntries.Amount
+	Fetch: InventoryEntries.StockItemName, InventoryEntries.BilledQty, InventoryEntries.Rate, InventoryEntries.Amount
+	Filter: IsNonExpensePymt
+
+	Filter: NonCancelled
+	Filter: NonOptional
+	Filter: NonZeroEntries
+
+[Collection: SEND_Receipt_Tally]
+
+	Type		: Vouchers : VoucherType
+	Child Of	: $$VchTypeReceipt
+	Belongs To	: Yes
+	Filter 		: WebStatus
+	Fetch: VoucherTypeName, PartyLedgerNAme ,Date, Narration, Amount, WebStatus_DocName
+	Fetch: LedgerEntries.LedgerName, LedgerEntries.Amount
+	Fetch: LedgerEntries.BillAllocations.*
+	Fetch: InventoryEntries.StockItemName, InventoryEntries.BilledQty, InventoryEntries.Rate, InventoryEntries.Amount
+	Filter: IsNonExpensePymt
+	
+	Filter: NonCancelled
+	Filter: NonOptional
+	Filter: NonZeroEntries
+
+	Filter: MyDebugFilter
+	
+		[System: Formula]
+			
+			MyDebugFilter: $PartyLedgerName = "Comet Electricals, Raipur"
+
+[#Object: Voucher]
+	
+;	Paid_to 	: if $$IsPayment:$VoucherTypeName then @@PY_Party else if $$IsReceipt:$VoucherTypeName then  @@PY_Cash else ""
+;	Paid_from 	: if $$IsPayment:$VoucherTypeName then @@PY_Cash  else if $$IsReceipt:$VoucherTypeName then @@PY_Party else ""
+	
+	IsExpensePymt :  If $$IsEmpty:@@PY_IsPartyLedger or @@PY_CreditorsRcpt or @@PY_DebtorsPymt then Yes else No
+
+	PY_Cash		: $LedgerEntries[1, @@PY_CashLed].LedgerNAme
+	PY_Party	: $LedgerEntries[1, @@PY_NotCash].LedgerNAme
+
+
+	[System: Formula]
+		
+;		PY_Cash		: $LedgerEntries[1, @@PY_CashLed].LedgerNAme
+;		PY_Party	: $LedgerEntries[1, @@PY_NotCash].LedgerNAme
+		
+		PY_CashLed 	: $$IsLedOfGrp:$LedgerName:$$GroupCash or $$IsLedOfGrp:$LedgerName:$$GroupBank or $$IsLedOfGrp:$LedgerName:$$GroupBankOD
+		PY_NotCash	: NOt @@PY_CashLed
+		
+		PY_IsPartyLedger : $$FilterAmtTotal:LedgerEntries:PY_IsPartyfilter:$Amount 
+		PY_IsPartyfilter : $$IsLedOfGrp:$LedgerName:$$GroupSundryDebtors or $$IsLedOfGrp:$LedgerName:$$GroupSundryCreditors
+		
+		IsNonExpensePymt : Not $IsExpensePymt
+		IsExpensePymt : $IsExpensePymt
+		
+		PY_BankLed : $$IsLedOfGrp:$LedgerName:$$GroupBank or $$IsLedOfGrp:$LedgerName:$$GroupBankOD
+
+		PY_CreditorsRcpt : $$FilterCount:LedgerEntries:CreditorsRcpt > 0
+		CreditorsRcpt	: $$IsPayment:$VoucherTypeName and $$IsLedOfGrp:$LedgerName:$$GroupSundryDebtors
+ 
+		PY_DebtorsPymt : $$FilterCount:LedgerEntries:DebtorsPymt > 0
+		DebtorsPymt		: $$IsReceipt:$VoucherTypeName and $$IsLedOfGrp:$LedgerName:$$GroupSundryCreditors

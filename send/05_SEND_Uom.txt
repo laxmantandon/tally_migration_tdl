@@ -1,0 +1,91 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_Uom]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.uom'
+
+	RemoteRequest: SEND_Uom : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;	Add: Item: Send Uom : Call: SEND_Uom
+
+
+[Function: SEND_Uom]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+
+	10 : Walk Collection: SEND_Uom
+	20 : 	If: $Status
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Unit, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (Unit, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	40 :		End Walk
+	42 :	End Batch Post
+	45 : 	End If
+	60 : End Walk
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item:TEst1 : Display: SEND_Uom
+
+[Report : SEND_Uom]
+	
+	Form: SEND_Uom
+	
+	[Form: SEND_Uom]
+		
+		Part: SEND_Uom
+		Delete: XMLTag
+
+	[Part: SEND_Uom]
+		
+		Line: SEND_Uom
+		Repeat: SEND_Uom : SEND_Uom_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_Uom]
+			
+			Field: SEND_Uom, SEND_must_be_whole_number, SEND_Uom_dotype
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+			
+			[Field: SEND_Uom]
+				
+				Set as: $Name
+				JSONTag: "uom_name"
+				
+			[Field: SEND_must_be_whole_number]
+				
+				Set as: if $DecimalPlaces = 0 then 1 else 0
+				JSONTag: "must_be_whole_number"
+
+			[Field: SEND_Uom_dotype]
+				
+				Set as: "UOM"
+				JSONTag: "doctype"
+
+[Collection: SEND_Uom_Tally]
+	
+	Type		: Unit
+	Belongs To	: Yes
+	Sort		: @@Default : $depth
+	Filter 		: WebStatus
+	
+
+[#Form: Unit]
+	
+	Option: LedgerWebStatus 
+

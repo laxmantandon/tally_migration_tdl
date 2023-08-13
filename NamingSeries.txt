@@ -1,0 +1,30 @@
+;;Shivgoraksh
+
+[#Part: VTYP Behaviour]
+	
+	Add: Option: VTYP Behaviour Series : @@EnableERPNextImp
+	
+	[!Part: VTYP Behaviour Series]
+		
+		Add: Line: At End: ERPNextNamingSeries
+		
+	[Line: ERPNextNamingSeries]
+		
+		Field: Long Prompt, ERPNextNamingSeries
+		Local: Field: Long Prompt : Info: "ERPNext Naming Series"
+		
+		[Field: ERPNextNamingSeries]
+			
+			Use: Name field 
+			Case: Normal
+			Storage: ERPNextNamingSeries
+			
+	[System: UDF]
+		
+		ERPNextNamingSeries : String: 33588
+
+	[System: Formula]
+		
+		ERPNextNamingSeries : $ERPNextNamingSeries:VoucherType:$VoucherTypeName
+
+

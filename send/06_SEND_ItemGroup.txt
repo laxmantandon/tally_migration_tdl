@@ -1,0 +1,120 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_ItemGroup]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.item_group'
+
+	RemoteRequest: SEND_ItemGroup : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item: Send Item Group : Call: SEND_ItemGroup
+;	Add: Item: Send Item Group: Call: SEND_ItemGroup_Start
+
+	[Function: SEND_ItemGroup_Start]
+		
+		10 : Start Timer: SEND_ItemGroup_Timer : 1
+		
+	[System: Events]
+		
+		SEND_ItemGroup_Timer : Timer: True: Call: SEND_ItemGroup
+
+[Function: SEND_ItemGroup]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+	Variable: vCounter_send : Number: 1
+
+	06 : Do If: ($$NumItems:SEND_ItemGroup_Tally = 0) :  Stop Timer: SEND_ItemGroup_Timer
+	07 : Do If: ($$NumItems:SEND_ItemGroup_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_ItemGroup_Timer
+	09 : Start Progress: 1 : "Sending ItemGroup Groups" : ""
+
+
+	10 : Walk Collection: SEND_ItemGroup
+;	20 : 	If: $Status
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (StockGroup, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (StockGroup, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	40 :		End Walk
+	42 :	End Batch Post
+;	45 : 	End If
+	60 : End Walk
+;	61 : Stop Timer: SEND_ItemGroup_Timer 
+	65 : Do If: ($$NumItems:SEND_ItemGroup_Tally > 0) :  Start Timer: SEND_ItemGroup_Timer : 1
+
+
+
+
+[Report : SEND_ItemGroup]
+	
+	Form: SEND_ItemGroup
+	
+	[Form: SEND_ItemGroup]
+		
+		Part: SEND_ItemGroup
+		Delete: XMLTag
+
+	[Part: SEND_ItemGroup]
+		
+		Line: SEND_ItemGroup
+		Repeat: SEND_ItemGroup : SEND_ItemGroup_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_ItemGroup]
+			
+			Field: SEND_ItemGroup, SEND_ItemGroup_IsGroup, SEND_ItemGroup_dotype, SEND_ItemGroup_PrimaryGroup
+			Field: SEND_route
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+			
+			[Field: SEND_ItemGroup]
+				
+				Set as: $Name
+				JSONTag: "item_group_name"
+				
+			[Field: SEND_ItemGroup_IsGroup]
+				
+				Set as: if $$NumItems:SEND_ItemGroup_HasNodeColl > 1 then 1 else 0
+				JSONTag: "is_group"
+
+					[Collection: SEND_ItemGroup_HasNodeColl]
+						
+						Type: Stock Group
+						Child Of: $Name
+						Belongs To: Yes
+				
+			[Field: SEND_ItemGroup_dotype]
+				
+				Set as: "Item Group"
+				JSONTag: "doctype"
+
+			[Field: SEND_ItemGroup_PrimaryGroup]
+				
+				Set as: if $depth <= 1 then "All Item Groups" else $Parent
+				JSONTag : "parent_item_group"
+				
+			[Field: SEND_route]
+				
+				JSONTag: "route"
+				Set as: $name
+
+
+[Collection: SEND_ItemGroup_Tally]
+	
+	Type		: StockGroup
+	Belongs To	: Yes
+	Sort		: @@Default : $depth
+	Filter 		: WebStatus
+;	

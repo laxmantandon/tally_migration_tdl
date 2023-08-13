@@ -1,0 +1,326 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_Item]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.item'
+
+	RemoteRequest: SEND_Item : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item: Send Item : Call: SEND_Item
+;	Add: Item: Send Item : Call: SEND_Item_Start
+
+	[Function: SEND_Item_Start]
+		
+		10 : Start Timer: SEND_Item_Timer : 1
+		
+	[System: Events]
+		
+		SEND_Item_Timer : Timer: True: Call: SEND_Item
+
+
+[Function: SEND_Item]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+	Variable: vCounter_send : Number: 1
+	
+	Variable: vStatus : String
+
+	06 : Do If: ($$NumItems:SEND_Item_Tally = 0) :  Stop Timer: SEND_Item_Timer
+	07 : Do If: ($$NumItems:SEND_Item_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_Item_Timer
+	09 : Start Progress: 1 : "Sending Item s" : ""
+
+	10 : Walk Collection: SEND_Item
+;	20 : 	If: $Status
+	12 : Set: vStatus : $Status
+;	13 : Log: ##vStatus
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (StockItem, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (StockItem, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	40 :		End Walk
+	42 :	End Batch Post
+;	45 : 	End If
+	60 : End Walk
+	65 : Do If: ($$NumItems:SEND_Item_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_Item_Timer : 1
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item:TEst1 : Display: SEND_Item
+
+[Report : SEND_Item]
+	
+	Form: SEND_Item
+	
+	[Form: SEND_Item]
+		
+		Part: SEND_Item
+		Delete: XMLTag
+
+	[Part: SEND_Item]
+		
+		Line: SEND_Item
+		Repeat: SEND_Item : SEND_Item_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_Item]
+			
+			Field: SEND_item_code, SEND_item_name, SEND_item_group, SEND_gst_hsn_code
+			Field: SEND_is_nil_exempt, SEND_stock_uom
+			Field: SEND_description;, SEND_valuation_rate, SEND_standard_rate, SEND_opening_stock, 
+			Field: SEND_doctype;, SEND_is_purchase_item, SEND_is_sales_item
+			
+			;SEND_is_non_gst, SEND_is_stock_item, SEND_include_item_in_manufacturing
+			
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+			
+			Explode: SEND_barcodes : $$NumItems:Name > 1
+;			Explode: SEND_uoms
+			Explode: SEND_taxes : Not $$IsEmpty:@@IGSTRate 
+			
+					[#Object: StockItem]
+						
+						Item_Alias : $$Alias
+
+			[Field: SEND_item_code]
+				
+				Set as: if $$IsEmpty:$Item_Alias and $$IsEmpty:$partno then $MasterId else if $$IsEmpty:$Item_Alias then $partno else $Item_Alias
+				JSONTag: "item_code"
+				
+			[Field: SEND_item_name]
+				
+				Set as: $name
+				JSONTag: "item_name"
+
+			[Field: SEND_item_group]
+				
+				Set as: $parent
+				JSONTag: "item_group"
+
+			[Field: SEND_gst_hsn_code]
+				
+				Set as	 : @HSNCode
+				HSNCode  : $(GSTCLASSIFICATION, @GSTClassification).GSTDetails[Last].HSNCode
+				JSONTag: "gst_hsn_code"
+				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:$Name) then $Classification_Name:StockGroup:$Parent else $Classification_Name:StockItem:$Name
+
+			[Field: SEND_is_nil_exempt]
+				
+				Set as: 0
+				JSONTag: "is_nil_exempt"
+
+			[Field: SEND_is_non_gst]
+				
+				Set as: 0
+				JSONTag: "is_non_gst"
+
+			[Field: SEND_stock_uom]
+				
+				Set as: $BaseUnits
+				JSONTag: "stock_uom"
+
+			[Field: SEND_is_stock_item]
+				
+				Set as: 1
+				JSONTag: "is_stock_item"
+
+			[Field: SEND_include_item_in_manufacturing]
+				
+				Set as: 1
+				JSONTag: "include_item_in_manufacturing"
+
+			[Field: SEND_opening_stock]
+				
+				Set as: 0
+				JSONTag: "opening_stock"
+
+			[Field: SEND_valuation_rate]
+				
+				Set as: 0
+				JSONTag: "valuation_rate"
+
+			[Field: SEND_standard_rate]
+				
+				Set as: 0
+				JSONTag: "standard_rate"
+
+			[Field: SEND_description]
+				
+				Set as: $name
+				JSONTag: "description"
+
+			[Field: SEND_is_purchase_item]
+				
+				Set as: 1
+				JSONTag: "is_purchase_item"
+
+			[Field: SEND_is_sales_item]
+				
+				Set as: 1
+				JSONTag: "is_sales_item"
+
+			[Field: SEND_doctype]
+				
+				Set as: "Item"
+				JSONTag: "doctype"
+
+			[Part: SEND_barcodes]
+				
+				Line: SEND_barcodes
+				Repeat: SEND_barcodes : name
+				Scroll: Vertical
+				
+				[Line: SEND_barcodes ]
+					
+					Field: SEND_barcodes 
+					JSONTag: "barcodes"
+					Empty: $$Line = 1
+
+					[Field: SEND_barcodes]
+						
+						Set as: $name
+						JSONTag: "barcode"
+
+			[Part: SEND_uoms]
+				
+				Line: SEND_uoms
+				Scroll : Vertical
+				
+				[Line: SEND_uoms]
+					
+					Field: SEND_uoms, SEND_conversion_factor, SEND_uom_doctype
+					JSONTag: "uoms"
+					
+					[Field: SEND_uoms]
+				
+						Set as: $BaseUnits
+						JSONTag: "uom"
+
+					[Field: SEND_conversion_factor]
+				
+						Set as: $Conversion
+						JSONTag: "conversion_factor"
+						
+					[Field: SEND_uom_doctype]
+
+						Set as: "UOM Conversion Detail"
+						JSONTag: "doctype"
+
+
+			[Part: SEND_taxes]
+				
+				Line	: SEND_taxes
+				Repeat	: SEND_Taxes : SEND_Taxes
+				Scroll 	: Vertical
+				
+				[Line: SEND_taxes]
+					
+					Field: SEND_item_tax_template, SEND_tax_category, SEND_taxes_doctype
+					JSONTag	: "taxes"
+					
+					[Field: SEND_item_tax_template]
+				
+						Set as: $item_tax_template
+						JSONTag: "item_tax_template"
+
+					[Field: SEND_tax_category]
+				
+						Set as: "" ;$tax_category
+						JSONTag: "tax_category"
+						
+					[Field: SEND_taxes_doctype]
+
+						Set as: $doctype
+						JSONTag: "doctype"
+						
+
+;						[#Object: StockItem]
+;							
+;							SEND_Taxes_Interstate : "Interstate GST @"+ $$String:@@IGSTRate +"% - " + @@EnableERPNextCmpAbbr
+;							SEND_Taxes_Local	  : "Local GST @"+ $$String:@@IGSTRate +"% - " + @@EnableERPNextCmpAbbr
+							
+
+							[Collection: SEND_Taxes]
+								
+								Object: SEND_Taxes_Interstate;, SEND_Taxes_Local
+								
+							[Object : SEND_Taxes_Interstate]
+								
+								name 				: #SEND_item_name
+								item_tax_template 	: "GST "+ $$String:@@IGSTRate +"% - " + @@EnableERPNextCmpAbbr
+								tax_category 		: "Out-State"
+								doctype			 	: "Item Tax"
+
+							[Object : SEND_Taxes_Local]
+								
+								name 				: #SEND_item_name
+								item_tax_template 	: "Local GST @"+ $$String:@@IGSTRate +"% - " + @@EnableERPNextCmpAbbr
+								tax_category 		: "In-State"
+								doctype			 	: "Item Tax"
+
+
+			[System: Formula]
+
+				IGSTRate : if $$IsEmpty:@@GSTClassification or @@GSTClassification = $$SysName:Undefined then  $item_gst_rate:StockItem:#SEND_item_name else $GST_Rate:GSTCLASSIFICATION:@@GSTClassification
+				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:#SEND_item_name) then $Classification_Name:StockGroup:($Parent:StockItem:#SEND_item_name) else $Classification_Name:StockItem:#SEND_item_name
+				
+
+			[#Object : GSTCLASSIFICATION]
+				
+;				GST_Rate : $GSTDetails[Last].STATEWISEDETAILS[Last].RATEDETAILS[3].GSTRATE
+				GST_Rate : $GSTDetails[-1, @@ExpressVchDate].STATEWISEDETAILS[Last].RATEDETAILS[3].GSTRATE
+
+					[System: Formula]
+						
+						ExpressVchDate : $ApplicableFrom <= $$ReqObject:$().Date
+
+			[#Object: StockItem]
+				
+				Classification_Name : $GSTDetails[Last].HSNMasterName
+				
+				item_gst_hsncode : $$GetGSTTransInfo:##SVToDate:"":$Name:"HSNCode"
+				item_gst_rate	 : $$GetGSTRate:##SVToDate:"":$Name:@@IGSTDutyHead:""
+
+			[#Object: Ledger]
+								
+				item_gst_hsncode : $$GetGSTTransInfo:##SVToDate:$Name:"":"HSNCode"
+				item_gst_rate	 : $$GetGSTRate:##SVToDate:$Name:"":@@IGSTDutyHead:""
+
+
+			[#Object: StockGroup]
+				
+				Classification_Name : $GSTDetails[Last].HSNMasterName
+
+
+
+[Collection: SEND_Item_Tally]
+	
+	Type		: StockItem
+	Belongs To	: Yes
+	Sort		: @@Default : $depth
+	Filter 		: WebStatus
+;	Filter		: Item_DebugFilter
+;	
+;	[System: Formula]
+;		
+;		Item_DebugFilter: $Name = "1400 MM 35 GSM SF BLUE"
+
+[#Form: StockItem]
+
+	Add : Option : LedgerWebStatus
+

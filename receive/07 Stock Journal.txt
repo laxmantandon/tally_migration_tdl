@@ -1,0 +1,325 @@
+;;Shivgoraksh
+
+[Variable: SJVLV]
+	
+	Type: String
+
+[#Menu: ExpressIntegrationExp]
+	
+	Add: Item: ERPNext SJV  : Call: ERPNextSJV
+	
+	[Function: ERPNextSJV]
+		
+		List Variable: SJVLV
+
+		12 : Delete File: "STSJV.xml"
+		13 : Open File: "STSJV.xml" : Text : Write
+		14 : Truncate File
+
+		16 : Walk Collection: ERPNextSJVColl
+		18 : Call: SJVXML
+		19 : List Add: SJVLV : $name : $name		
+		155 : End Walk
+
+		200 : Close Target File
+		210 : SET : IMPORT File : "STSJV.xml" 	
+		220 : Import : Vouchers : Yes
+
+		230 : If : Not $$ImportInfo:Errors > 0		
+		240 : 	Call : UpdateSJVStatus:($$NumItems:SJVLVColl)
+		242 : else
+		245 : Msg Box: "Error" : "Something Went Wrong, Please contact support"
+		250 : End If
+
+		
+[Collection: ERPNextSJVColl]
+	
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source		: HTTP JSON : @@ERPNextHost + '/api/method/express_tally.send_tally.stock_journals'
+
+	RemoteRequest	: SJVReq : UTF8
+	JSON Object 	: ERPNextSJV
+	JSON Object Path: "message:1"
+
+	[Object: ERPNextSJV]
+		
+		Storage : name 					: String
+		Storage : posting_date  		: String
+		Storage : docstatus 			: String
+		Storage : amended_from			: String
+		Storage : company				: String
+		Storage : naming_series			: String
+		Storage : remarks				: String
+		Storage : total_amount			: String
+		Storage : to_warehouse			: String
+		Storage : from_warehouse		: String
+
+		collection : tstockjournal : tstockjournal
+		
+		[Object: tstockjournal]
+			
+			Collection: items : items
+			Storage : name 					: String
+			Storage : posting_date  		: String
+			Storage : docstatus 			: String
+			Storage : amended_from			: String
+			Storage : company				: String
+			Storage : naming_series			: String
+			Storage : remarks				: String
+			Storage : total_amount			: String
+			Storage : to_warehouse			: String
+			Storage : from_warehouse		: String
+
+
+;		[Object: SJVitems]
+;			
+;			Storage: item_code 		: String
+;			Storage : item_name		: String
+;			Storage: basic_rate 	: String
+;			Storage: qty	 		: String
+;			Storage: s_warehouse	: String
+;			Storage: t_warehouse	: String
+;			Storage: amount	 		: String
+;			Storage: valuation_rate	: String
+;			Storage: stock_uom		: String
+
+;; Request Report 
+
+	[Report: SJVReq]
+		
+		Form: SJVReq
+		
+		[Form: SJVReq]
+			
+			Part: SJVReq
+			Delete: XMLTag
+
+			[Part: SJVReq]
+					
+				Line: SJVReq
+				Scroll: Vertical
+
+				[Line: SJVReq]
+					
+					Field: SJVReqBranch, SJVReqSyncFrom
+					;XMLTag: "request"
+					
+				[Field: SJVReqBranch]
+					
+					XMLTag: "company"
+					Set as: @@ERPNextBranch
+					
+				[Field: SJVReqSyncFrom]
+					
+					XMLTag: "date"
+					Set as: "2021-04-01" ; @@ERPNextLastSyncOn
+					
+;; End of Request Report
+
+
+
+;; Master Success 
+
+[Function: UpdateSJVStatus]
+	
+	Parameter: processedIds : Number
+
+	08 : If: ##processedIds > 0 
+	10 : Walk Collection: UpdateSJVColl
+	20 : End Walk
+	30 : End If
+	40 : Delete File: "STSJV.xml"
+
+
+
+
+[Collection: UpdateSJVColl]
+	
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source	 : HTTP JSON: @@ERPNextHost + '/api/method/express_tally.send_tally.customer_update'
+	RemoteRequest : UpdateSJVRep : UTF8
+
+;; Status Report 
+
+[Report: UpdateSJVRep]
+	
+	Form: UpdateSJVRep
+	
+	[Form: UpdateSJVRep]
+		
+		Part: UpdateSJVRep
+		Delete: XMLTag
+
+	[Part: UpdateSJVRep]
+		
+		Line: UpdateSJVRep
+		Scroll: Vertical
+		
+	[Line: UpdateSJVRep]
+		
+		Field: UpdateSJVRep
+		Explode: UpdateSJVRepExp
+		
+			[Part: UpdateSJVRepExp]
+				
+				Line: UpdateSJVRepExp
+				Repeat: UpdateSJVRepExp : SJVLVColl
+				
+				[Line: UpdateSJVRepExp]
+					
+					Field: UpdateSJVRepExp
+					JSONTag: "data"
+					
+					[Field:UpdateSJVRepExp]
+						
+						Set as: $SJVLV
+						XMLTag: "docname"
+		
+		[Field: UpdateSJVRep]
+			
+			Set as: "Stock Entry"
+			JSONTag: "request_type"
+	
+	[Collection: SJVLVColl]
+		
+		Data Source: Variable: SJVLV 
+
+
+
+;;;; +
+
+[System: Formula]
+	
+	ETSJVsKey : If $$IsEmpty:$amended_from  or $amended_from = "null"  then $Name else "AMD"+$Name
+
+[Function: SJVXML]
+	
+	Variable: vPostingDate : String: $$GetTallyDate:$posting_date
+
+	099 : Walk : tstockjournal
+	100	: Write File Line :	'<TALLYMESSAGE xmlns:UDF="TallyUDF">'
+	105	: Write File Line : '<VOUCHER REMOTEID="'+@@ETSJVsKey+'" VCHTYPE="'+@@SJVVoucherType+'" ACTION="'+@@SJVAction+'" OBJVIEW="Consumption Voucher View">'
+	125	: Write File Line :	'<DATE>'+$$String:##vPostingDate +'</DATE>'
+	135	: Write File Line :	'<VOUCHERTYPENAME>'+@@SJVVoucherType+'</VOUCHERTYPENAME>'
+	136	: Write File Line :	'<VOUCHERNUMBER>'+$Name+'</VOUCHERNUMBER>'
+	155	: Write File Line :	'<FBTPAYMENTTYPE>Default</FBTPAYMENTTYPE>'
+	160	: Write File Line :	'<PERSISTEDVIEW>Consumption Voucher View</PERSISTEDVIEW>'
+;	170	: Write File Line :	'<DESTINATIONGODOWN>'+'Main Location'+'</DESTINATIONGODOWN>'
+	205	: Write File Line :	'<EFFECTIVEDATE>'+ $$String:##vPostingDate +'</EFFECTIVEDATE>'
+	206	: Write File Line :	'<VCHENTRYMODE>Use for Stock Journal</VCHENTRYMODE>'
+	207	: Write File Line :	'<VOUCHERTYPEORIGNAME>'+@@SJVVoucherType+'</VOUCHERTYPEORIGNAME>'
+
+
+	535 : Call: SetStockJrnlInventoryIn:Yes:"INVENTORYENTRIESIN"
+	540 : Call: SetStockJrnlInventoryOut:No:"INVENTORYENTRIESOUT"
+
+	830	: Write File Line :	'</VOUCHER>'
+	835	: Write File Line :	'</TALLYMESSAGE>'
+	836 : End Walk
+
+[Function: SetStockJrnlInventoryIn]
+	
+	Parameter: IsDeemedPos : Logical 
+	Parameter: InventoryType : String
+	Variable: Qty : String
+	Variable: Rate : String
+	Variable: Amount : String
+	Variable: warehouse : String
+	
+
+	400 : Walk Collection: items
+	405 : If: Not $$IsEmpty:$t_warehouse
+	501 : Set: Rate : $basic_rate + "/" + $BaseUnits:StockItem:$item_code
+	502 : Set: Amount : $amount
+	532 : Set : Qty : $qty + ' ' + @@PIUom ; $BaseUnits:StockItem:$item_code
+	533 : Set : warehouse : $$TRIM_Abbr:$t_warehouse
+	535	: Write File Line :	'<'+##InventoryType+'.LIST>'
+	540	: Write File Line :	'<STOCKITEMNAME>'+$item_code+'</STOCKITEMNAME>'
+	545	: Write File Line :	'<ISDEEMEDPOSITIVE>'+$$String:##IsDeemedPos+'</ISDEEMEDPOSITIVE>'
+	550	: Write File Line :	'<ISLASTDEEMEDPOSITIVE>'+$$String:##IsDeemedPos+'</ISLASTDEEMEDPOSITIVE>'
+	555	: Write File Line :	'<ISAUTONEGATE>No</ISAUTONEGATE>'
+	560	: Write File Line :	'<ISCUSTOMSCLEARANCE>No</ISCUSTOMSCLEARANCE>'
+	565	: Write File Line :	'<ISTRACKCOMPONENT>No</ISTRACKCOMPONENT>'
+	570	: Write File Line :	'<ISTRACKPRODUCTION>No</ISTRACKPRODUCTION>'
+	575	: Write File Line :	'<ISPRIMARYITEM>No</ISPRIMARYITEM>'
+	580	: Write File Line :	'<ISSCRAP>No</ISSCRAP>'
+	585	: Write File Line :	'<RATE>'+##Rate +'</RATE>'
+	590	: Write File Line :	'<AMOUNT>'+##Amount+'</AMOUNT>' ;;Negative Amount Required here
+	595	: Write File Line :	'<ACTUALQTY> '+ ##Qty+'</ACTUALQTY>'
+	600	: Write File Line :	'<BILLEDQTY> '+ ##Qty +'</BILLEDQTY>'
+	605	: Write File Line :	'<BATCHALLOCATIONS.LIST>'
+	610	: Write File Line :	'<GODOWNNAME>'+##warehouse+'</GODOWNNAME>'
+	615	: Write File Line :	'<BATCHNAME>Primary Batch</BATCHNAME>'
+	620	: Write File Line :	'<INDENTNO/>'
+	625	: Write File Line :	'<ORDERNO/>'
+	630	: Write File Line :	'<TRACKINGNUMBER/>'
+	635	: Write File Line :	'<DYNAMICCSTISCLEARED>No</DYNAMICCSTISCLEARED>'
+	640	: Write File Line :	'<AMOUNT>'+##Amount+'</AMOUNT>' ;;Amount Negative Required 
+	645	: Write File Line :	'<ACTUALQTY> '+##Qty +'</ACTUALQTY>'
+	650	: Write File Line :	'<BILLEDQTY> '+##Qty+'</BILLEDQTY>'
+	655	: Write File Line :	'<ADDITIONALDETAILS.LIST> </ADDITIONALDETAILS.LIST>'
+	660	: Write File Line :	'<VOUCHERCOMPONENTLIST.LIST> </VOUCHERCOMPONENTLIST.LIST>'
+	770	: Write File Line :	'</BATCHALLOCATIONS.LIST>'
+	810	: Write File Line :	'</'+##InventoryType+'.LIST>'
+	811 : End If 
+	812 : End Walk
+
+
+[Function: SetStockJrnlInventoryOut]
+	
+	Parameter: IsDeemedPos : Logical 
+	Parameter: InventoryType : String
+	Variable: Qty : String
+	Variable: Rate : String
+	Variable: Amount : String
+	Variable: warehouse : String
+	
+
+	400 : Walk Collection: items
+	401 : If: Not $$IsEmpty:$s_warehouse
+	501 : Set: Rate : $basic_rate + "/" + $BaseUnits:StockItem:$item_code
+	502 : Set: Amount : $amount
+	532 : Set : Qty : $qty + ' ' + $BaseUnits:StockItem:$item_code
+	533 : Set : warehouse : $$TRIM_Abbr:$s_warehouse 
+	535	: Write File Line :	'<'+##InventoryType+'.LIST>'
+	540	: Write File Line :	'<STOCKITEMNAME>'+$item_code+'</STOCKITEMNAME>'
+	545	: Write File Line :	'<ISDEEMEDPOSITIVE>'+$$String:##IsDeemedPos+'</ISDEEMEDPOSITIVE>'
+	550	: Write File Line :	'<ISLASTDEEMEDPOSITIVE>'+$$String:##IsDeemedPos+'</ISLASTDEEMEDPOSITIVE>'
+	555	: Write File Line :	'<ISAUTONEGATE>No</ISAUTONEGATE>'
+	560	: Write File Line :	'<ISCUSTOMSCLEARANCE>No</ISCUSTOMSCLEARANCE>'
+	565	: Write File Line :	'<ISTRACKCOMPONENT>No</ISTRACKCOMPONENT>'
+	570	: Write File Line :	'<ISTRACKPRODUCTION>No</ISTRACKPRODUCTION>'
+	575	: Write File Line :	'<ISPRIMARYITEM>No</ISPRIMARYITEM>'
+	580	: Write File Line :	'<ISSCRAP>No</ISSCRAP>'
+	585	: Write File Line :	'<RATE>'+##Rate +'</RATE>'
+	590	: Write File Line :	'<AMOUNT>'+##Amount+'</AMOUNT>' ;;Negative Amount Required here
+	595	: Write File Line :	'<ACTUALQTY> '+ ##Qty+'</ACTUALQTY>'
+	600	: Write File Line :	'<BILLEDQTY> '+ ##Qty +'</BILLEDQTY>'
+	605	: Write File Line :	'<BATCHALLOCATIONS.LIST>'
+	610	: Write File Line :	'<GODOWNNAME>'+##warehouse+'</GODOWNNAME>'
+	615	: Write File Line :	'<BATCHNAME>Primary Batch</BATCHNAME>'
+	620	: Write File Line :	'<INDENTNO/>'
+	625	: Write File Line :	'<ORDERNO/>'
+	630	: Write File Line :	'<TRACKINGNUMBER/>'
+	635	: Write File Line :	'<DYNAMICCSTISCLEARED>No</DYNAMICCSTISCLEARED>'
+	640	: Write File Line :	'<AMOUNT>'+##Amount+'</AMOUNT>' ;;Amount Negative Required 
+	645	: Write File Line :	'<ACTUALQTY> '+##Qty +'</ACTUALQTY>'
+	650	: Write File Line :	'<BILLEDQTY> '+##Qty+'</BILLEDQTY>'
+	655	: Write File Line :	'<ADDITIONALDETAILS.LIST> </ADDITIONALDETAILS.LIST>'
+	660	: Write File Line :	'<VOUCHERCOMPONENTLIST.LIST> </VOUCHERCOMPONENTLIST.LIST>'
+	770	: Write File Line :	'</BATCHALLOCATIONS.LIST>'
+	810	: Write File Line :	'</'+##InventoryType+'.LIST>'
+	811 : End If 
+	812 : End Walk
+
+
+[System : Formula]
+
+	SJVVoucherType 	: $$GetVchTypeByNaming:$naming_series ; if ##is_return = 0 then @@GEOSJVVchType else $$GEOCreditNoteVchType:@@GEOSJVSeries
+	SJVAction		: if $docstatus = "2" then "Cancel" else "Create"

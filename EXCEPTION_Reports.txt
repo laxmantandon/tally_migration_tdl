@@ -1,0 +1,399 @@
+;;Shivgoraksh
+
+;[Menu: ERPExcepRep]
+;[#Menu: ExpressIntegrationMain]
+;	
+;	Add: Item: Exception : Alter:  ERPExcepRep
+	
+	[Report: ERPExcepRep]
+		
+		Form: ERPExcepRep
+		Auto: Yes
+		
+		[Form: ERPExcepRep]
+			
+			Part: ERPExcepRep
+			On: Form Accept: Yes: Call: ERPExcepRep:#ERPExcepRep:#ERPExcepVType
+			Vertical Align: Top
+			Width: 35% Page
+			
+
+		[Part: ERPExcepRep]
+			
+			Line: FormSubTitle,ERPExcepRep, ERPExcepVType
+			Local: Field: FormSubTitle : Info: "Select an Object"
+			Space Left: 2
+			Space Right: 2
+			
+		[Line: ERPExcepRep]
+			
+			Field: ERPExcepRep
+			
+			[Field: ERPExcepRep]
+				
+				Use: Name Field 
+				Table: List of Exp Objects
+				Show Table: Always
+				Full Width: Yes
+				
+		[Line: ERPExcepVType]
+			
+			Field: ERPExcepVType
+			Local: Field: Default : Inactive: #ERPExcepRep != "Voucher"
+			
+			[Field: ERPExcepVType]
+				
+				Use: Name Field 
+				Table: List of VoucherTypes
+				Show Table: Always
+				
+			[Table: List of Exp Objects]
+				
+				List: "Customer","Supplier","Supplier Group", "Customer Group", "Stock Item", "Group", "Stock Group", "Voucher", "Godown", "All Sales Vouchers"
+				Full Height: Yes
+				Align: Center
+				Format: $$Name, 30
+		
+		
+		
+		
+		
+		[Function: ERPExcepRep]
+			
+			Parameter: vObjectType 	: String
+			Parameter: vVoucherType : String
+		
+			10 : Display: ERPException
+
+	[Report: ERPException]
+		
+		Form: ERPException
+		Variable: SVFromDate, SVToDate, ERPExceptionShowAll
+		Set: SVFromDate : $$MonthStart:##SVCurrentDate
+		Set: SVToDate	: $$MonthEnd:##SVCurrentDate
+		
+		[Form: ERPException]
+			
+			Part: DBTitle, ERPException
+			Button: Change Period
+			Button: ERPExpResetWebStatus, ERPExceptionShowAll
+			Use: Common Hidden Keys
+			Option: Small Size form
+
+		[Part: ERPException]
+			
+			Line: ERPExceptionTitle, ERPException
+			Repeat: ERPException : ERPException
+			Scroll: Vertical
+			
+		[Line: ERPExceptionTitle]
+			
+			Use:ERPException
+			Local: Field: ERPException				: Info: "Name"
+			Local: Field: ERPExcWebStatus			: Info: "Web Status"
+			Local: Field: ERPExcWebStatus_Message	: Info: "Status"
+			Local: Field: ERPExcWebStatus_DocName	: Info: "Doc Name"
+			Local: Field: ERPExcVchParty			: Info: "Account"
+			Local: Field: ERPExcVchDate				: Info: "Date"
+			Local: Field: ERPExcVchType				: Info: "Vch Type"
+			
+			Border: Column Titles
+
+		[Line: ERPException]
+			
+			Field: ERPException
+			Right Field: ERPExcWebStatus, ERPExcWebStatus_Message
+			Right Field: ERPExcWebStatus_DocName
+			Option: ERPException Vouchers : ##vObjectType IN ("Voucher", "All Sales Vouchers")
+
+			[Field: ERPException]
+				
+				Use: Name Field 
+				Set as: $Name
+				Full Width: Yes
+				Option: ERPException Customer : ##vObjectType = "Customer" or ##vObjectType = "Supplier"
+				Option: ERPException StockItem : ##vObjectType = "StockItem"
+				Option: ERPException StockGroup : ##vObjectType = "Stock Group"
+				Option: ERPException CustomerGroup : ##vObjectType = "Customer Group" or ##vObjectType = "Supplier Group"
+				Option: ERPException Godown : ##vObjectType = "Godown"
+				
+
+				[!Field: ERPException Customer]
+					
+					Variable : SLedger
+					Modifies: SLedger
+					Alter: Ledger
+
+				[!Field: ERPException StockItem ]
+					
+					Variable : SStockItem
+					Modifies: SStockItem
+					Alter: StockItem
+
+				[!Field: ERPException StockGroup]
+					
+					Variable : SStockGroup
+					Modifies: SStockGroup
+					Alter: Stock Group
+
+				[!Field: ERPException CustomerGroup]
+
+					Variable : GroupName
+					Modifies: GroupName
+					Alter: Group
+
+				[!Field: ERPException Godown]
+
+					Variable : SGodown
+					Modifies: SGodown
+					Alter: Godown
+					
+			[!Line: ERPException Vouchers]
+				
+				Add: Right Field: At Beginning : ERPExcVchDate, ERPExcVchParty, ERPExcVchType
+				Key: AlterVoucher
+				
+				[Field: ERPExcVchParty]
+					
+					Use: Name Field 
+					Set as: $PartyLedgerName
+					Full Width: Yes
+					Space Left: 3
+
+				[Field: ERPExcVchDate]
+					
+					Use: Uni Date Field
+					Set as: $Date
+
+				[Field: ERPExcVchType]
+					
+					Use:Short Name Field 
+					Set as: $VoucherTypeName
+					Space Left: 3
+				
+				[Key: AlterVoucher]
+					
+					Key: Enter
+					Action: Call: AlterVoucher:$MasterId
+					
+					[Function: AlterVoucher]
+						
+						Parameter: vVoucherID : String
+						Variable: VoucherId : String
+						
+						10 : Set: VoucherId : "ID:"+##vVoucherID
+						20 : Alter: Voucher
+
+			[Field: ERPExcWebStatus]
+
+				Use: Short Name Field 
+				Set as: $WebStatus
+				
+			[Field: ERPExcWebStatus_Message]
+				
+				Use: Narration Field 
+				Set as: $WebStatus_Message
+				Lines: 0
+				Full Width: Yes
+
+			[Field: ERPExcWebStatus_DocName]
+				
+				Use: Short Name Field
+				Set as: $WebStatus_DocName
+
+
+	[Collection: ERPException]
+		
+		Add : Option: ERPException Customer 		: ##vObjectType = "Customer"
+		Add : Option: ERPException Supplier 		: ##vObjectType = "Supplier"
+		Add : Option: ERPException CustomerGroup 	: ##vObjectType = "Customer Group"
+		Add : Option: ERPException SupplierGroup 	: ##vObjectType = "Supplier Group"
+		Add : Option: ERPException StockGroup 		: ##vObjectType = "Stock Group"
+		Add : Option: ERPException StockItem 		: ##vObjectType = "StockItem"
+		Add : Option: ERPException Godown	 		: ##vObjectType = "Godown"
+		Add : Option: ERPException Vouchers 		: ##vObjectType IN ("Voucher", "All Sales Vouchers")
+					
+		[!Collection: ERPException Customer]
+			
+			Type: Ledger
+			Child Of: $$GroupSundryDebtors
+			Belongs To: Yes
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+			
+		[!Collection: ERPException Supplier]
+
+			Type: Ledger
+			Child Of: $$GroupSundryCreditors
+			Belongs To: Yes
+			Filter: WebStatus_Error
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+
+		[!Collection: ERPException CustomerGroup]
+
+			Type: Group
+			Child Of: "Sundry Debtors"
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+
+		[!Collection: ERPException SupplierGroup] 
+
+			Type: Group
+			Child Of: "Sundry Creditors"
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+
+		[!Collection: ERPException StockGroup] 
+
+			Type: Stock Group
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+
+
+		[!Collection: ERPException StockItem]
+			
+			Type: StockItem
+			;Child Of: ##vVoucherType
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+
+		[!Collection: ERPException Godown]
+			
+			Type: Godown
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+
+		[!Collection: ERPException Vouchers]
+			
+			Type: Voucher
+			Compute: Name : $VoucherNumber
+
+			Fetch: PartyLedgerName, MasterId, VoucherTypeName, VoucherNumber, WebStatus_Message, IsOptional, IsCancelled
+			Filter: ERPExceptionVchTypeFilter
+
+			Filter: NonCancelled
+			Filter: NonOptional
+			Filter: WebStatus_Error
+			
+
+		[System: Formula]
+			
+			WebStatus_Error : if ##ERPExceptionShowAll then Yes else $WebStatus_Message Not in  ("Success", "Already Exists")
+			ERPExceptionVchTypeFilter : if ##vObjectType = "All Sales Vouchers" then $$IsSales:$VoucherTypeNAme else $VoucherTypeName = ##vVoucherType
+
+
+;; Show All button
+
+[Variable: ERPExceptionShowAll]
+	
+	Type: Logical
+	
+[Button: ERPExceptionShowAll]
+	
+	Title: "Show All"
+	Action: Set: ERPExceptionShowAll : if ##ERPExceptionShowAll then no else yes
+	Key : Alt+ S
+	
+	
+
+
+;;; ERPNext Doc Name in Day Book
+
+
+;;Title Line 1
+[#Line : DBTitle1]
+	
+	Add: Option: Custmz DBTitle1: Yes
+	
+	[!Line: Custmz DBTitle1]
+		
+		Add: Right Field: Before: DSP VchTypeTitle: ERPNExtDocNameTitle
+		
+		[Field:  ERPNExtDocNameTitle]
+			
+			Use         : Short Name Title Field
+			Info        : $$LocaleString:"ERPNext DocName"
+			Align		: Center
+			Style		: Normal
+			Width		: If $$InPrintMode then 12 else @@ShortNameWidth
+			
+;;Title Line 2
+[#Line : DBTitle2]
+	
+	Add: Option: Custmz DBTitle2: YEs
+	
+	[!Line: Custmz DBTitle2]
+	
+		Add: Right Field: Before: DSP VchTypeTitle: ERPNExtDocNameTitle
+		Local: Field	: ERPNExtDocNameTitle: Info: ""
+				
+
+;;Detail Line
+[#Line: DSP VchDetail]
+	
+	Add: Option: Custmz VchDetail: YEs
+	
+	[!Line: Custmz VchDetail]
+		
+		Add: Right Field: Before: DSP VchType: ERPNExtDocName
+		
+		[Field: ERPNExtDocName]
+			
+			Use		: Short Name Field
+			Set as	: $WebStatus_DocName
+			Align	: Center
+			Width	: If $$InPrintMode then 12 else @@ShortNameWidth
+
+
+
+;;Modifying Collection for DayBook 
+[#Collection: Daybook Vouchers of Company]
+	
+	Add: Option: Custmz Daybook Vouchers of Company: YEs
+	
+[#Collection: Filtered Vouchers of Company]
+	
+	Add: Option: Custmz Daybook Vouchers of Company: YEs
+
+	[!Collection: Custmz Daybook Vouchers of Company]
+	
+		Fetch: WebStatus_DocName
+		
+
+
+
+;;; RESET Web Status 
+
+[Button: ERPExpResetWebStatus]
+	
+	Key : Ctrl + T
+	Title: "Reset Status"
+	Action: Call: ERPExpResetWebStatus
+	
+	[Function: ERPExpResetWebStatus]
+		
+		Variable: VID		: String
+		Variable: Counter 	: Number
+
+		10 : Do If:  ($$NumItems:ERPExpResetWebStatus) <= 0 : Msg Box: "Oops" : "Select any record, press Space Bar"
+		12 : Do If:  ($$NumItems:ERPExpResetWebStatus) <= 0 : Return
+		
+		15 : Start Batch Post
+		18 : 		Start Progress : ($$NumItems:ERPExpResetWebStatus) : "Update In Progress" : "Updating Vouchers.."
+		20 : 			Walk Collection : ERPExpResetWebStatus
+		21 : 			Set : VID : "ID:"+$$String:$Masterid
+		35 : 				SET TARGET
+		45 : 				SET VALUE: WebStatus 		 : "Reset"
+		42 : 				Set Value: WebStatus_message : ""
+		43 : 				Set Value: WebStatus_DocName : ""
+		55 : 				ACCEPT ALTER
+		61 : 			Increment : Counter
+		62 : 			Show Progress : ##Counter
+		70 : 			END Walk
+		80 : 		End Progress
+		85 : End Batch Post
+
+	[Collection: ERPExpResetWebStatus]
+		
+		Data Source: Report: Selected Lines
+		Fetch: *.*
