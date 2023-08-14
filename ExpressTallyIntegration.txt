@@ -213,12 +213,12 @@
 			Key: Ctrl + Y
 	
 
-[Include: receive\01 Customer.txt]
-[Include: receive\02 Supplier.txt]
-[Include: receive\03 PurchaseInvoice.txt]
-[Include: receive\04 SaleInvoice.txt]
-[Include: receive\05 Payment.txt]
-[Include: receive\07 Stock Journal.txt]
+;[Include: receive\01 Customer.txt]
+;[Include: receive\02 Supplier.txt]
+;[Include: receive\03 PurchaseInvoice.txt]
+;[Include: receive\04 SaleInvoice.txt]
+;[Include: receive\05 Payment.txt]
+;[Include: receive\07 Stock Journal.txt]
 
 [Include: UtilityFunctions.txt]
 [Include: AutoSettings.txt]
@@ -248,10 +248,3 @@
 [Include: NamingSeriesConfig.txt]
 
 [Include: ETPL.txt]
-
-
-;;[Include: Cartel.txt]
-;;[Include : PCWorld.txt]
-;
-;;[Include: E:\Other computers\My Laptop\Dropbox\Express Estimation\TallyData\TdlPrime\test.tdl]
-;
