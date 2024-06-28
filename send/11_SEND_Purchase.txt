@@ -309,7 +309,7 @@
 
 			[Field: PI_expense_account]
 
-				Set as: $AccountingAllocations[1].LedgerName + " - " + @@EnableERPNextCmpAbbr
+				Set as: "Cost of Goods Sold - " + @@EnableERPNextCmpAbbr
 				JSONTag: "expense_account"
 
 			[Field: PI_warehouse]

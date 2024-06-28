@@ -84,7 +84,7 @@
 			
 			Field: SEND_Supplier_name, SEND_Supplier_type, SEND_Supplier_dotype, SEND_Supplier_group
 			Field: SEND_Supplier_gst_category,SEND_Supplier_pan, SEND_Supplier_territory, SEND_Supplier_tax_category			
-			Field: SEND_Supplier_default_currency;,SEND_Supplier_default_price_list
+;			Field: SEND_Supplier_default_currency;,SEND_Supplier_default_price_list
 			
 			Field: SEND_Supplier_add1, SEND_Supplier_add2,SEND_Supplier_add3,SEND_Supplier_add4
 			Field: SEND_Supplier_state_code, SEND_Supplier_state, SEND_Supplier_country, SEND_Supplier_picode, SEND_Supplier_city
@@ -145,10 +145,10 @@
 				Set as: If @@CMPStateName = $LedStateName then "In-State" else "Out-State"
 				JSONTag : "tax_category"
 
-			[Field: SEND_Supplier_default_currency]
-				
-				Set as: "INR"
-				JSONTag : "default_currency"
+;			[Field: SEND_Supplier_default_currency]
+;				
+;				Set as: "INR"
+;				JSONTag : "default_currency"
 
 			[Field: SEND_Supplier_default_price_list]
 				

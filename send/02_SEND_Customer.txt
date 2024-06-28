@@ -83,7 +83,7 @@
 			
 			Field: SEND_Customer_name, SEND_Customer_type, SEND_Customer_dotype, SEND_Customer_group
 			Field: SEND_Customer_gst_category,SEND_Customer_pan, SEND_Customer_territory, SEND_Customer_tax_category			
-			Field: SEND_Customer_so_required, SEND_Customer_dn_required,SEND_Customer_default_currency,SEND_Customer_default_price_list
+			Field: SEND_Customer_so_required, SEND_Customer_dn_required,SEND_Customer_default_price_list
 			Field: SEND_Customer_first_deal_by, SEND_Customer_referred_by,SEND_Customer_permitted_by,SEND_Customer_payment_responsibility
 			
 			Field: SEND_Customer_credit_limit, SEND_Customer_add1, SEND_Customer_add2,SEND_Customer_add3,SEND_Customer_add4
@@ -100,6 +100,8 @@
 
 			JSONTag: "data"
 			Empty: $$Line > @@RecordsLimit
+			
+			;SEND_Customer_default_currency
 			
 			[Field: SEND_Customer_name]
 				
@@ -158,10 +160,10 @@
 				JSONTag : "dn_required"
 				Type: Number
 
-			[Field: SEND_Customer_default_currency]
-				
-				Set as: "INR"
-				JSONTag : "default_currency"
+;			[Field: SEND_Customer_default_currency]
+;				
+;				Set as: "INR"
+;				JSONTag : "default_currency"
 
 			[Field: SEND_Customer_default_price_list]
 				

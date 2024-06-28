@@ -118,7 +118,8 @@
 				HSNCode  : $(GSTCLASSIFICATION, @GSTClassification).GSTDetails[Last].HSNCode
 				JSONTag: "gst_hsn_code"
 				GSTClassification : if $$IsEmpty:($Classification_Name:StockItem:$Name) then $Classification_Name:StockGroup:$Parent else $Classification_Name:StockItem:$Name
-
+				Invisible: Not @@IsGSTOn
+				
 			[Field: SEND_is_nil_exempt]
 				
 				Set as: 0
@@ -314,11 +315,11 @@
 	Belongs To	: Yes
 	Sort		: @@Default : $depth
 	Filter 		: WebStatus
-;	Filter		: Item_DebugFilter
-;	
-;	[System: Formula]
-;		
-;		Item_DebugFilter: $Name = "1400 MM 35 GSM SF BLUE"
+	Filter		: Item_DebugFilter
+	
+	[System: Formula]
+		
+		Item_DebugFilter: $Name = "0.89 UF"
 
 [#Form: StockItem]
 

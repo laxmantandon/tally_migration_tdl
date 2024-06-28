@@ -305,7 +305,7 @@
 			Local: Line: CN_items : Local: Field: CN_qty : Set as: -1
 			Local: Line: CN_items : Local: Field: CN_rate : Set as: #CN_amount
 			Local: Line: CN_items : Local: Field: CN_base_rate: Set as: #CN_amount
-			Local: Line: CN_items : Local: Field: CN_income_account: Set as: $LedgerName + " - " + @@EnableERPNextCmpAbbr
+			Local: Line: CN_items : Local: Field: CN_income_account: Set as: "Sales" + " - " + @@EnableERPNextCmpAbbr
 			Local: Line: CN_items : Local: Field: CN_base_price_list_rate : Set as: #CN_amount
 			Local: Line: CN_items : Local: Field: CN_price_list_rate : Set as: #CN_amount
 			Local: Line: CN_items : Local: Field: CN_gst_hsn_code : Set as: $item_hsn_code:Ledger:$LedgerNAme
@@ -430,7 +430,7 @@
 
 			[Field: CN_income_account]
 
-				Set as: $AccountingAllocations[1].LedgerName + " - " + @@EnableERPNextCmpAbbr
+				Set as: "Sales" + " - " + @@EnableERPNextCmpAbbr
 				JSONTag: "income_account"
 
 			[Field: CN_warehouse]
