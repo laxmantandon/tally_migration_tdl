@@ -49,7 +49,7 @@
 				
 			[Table: List of Exp Objects]
 				
-				List: "Customer","Supplier","Supplier Group", "Customer Group", "Stock Item", "Group", "Stock Group", "Voucher", "Godown", "All Sales Vouchers", "All Purchase Vouchers"
+				List: "Customer","Supplier","Supplier Group", "Customer Group", "Stock Item", "Group", "Stock Group", "Voucher", "Godown", "All Sales Vouchers", "All Purchase Vouchers", "All Stock Vouchers"
 				Full Height: Yes
 				Align: Center
 				Format: $$Name, 30
@@ -104,7 +104,7 @@
 			Field: ERPException
 			Right Field: ERPExcWebStatus, ERPExcWebStatus_Message
 			Right Field: ERPExcWebStatus_DocName
-			Option: ERPException Vouchers : ##vObjectType IN ("Voucher", "All Sales Vouchers", "All Purchase Vouchers")
+			Option: ERPException Vouchers : ##vObjectType IN ("Voucher", "All Sales Vouchers", "All Purchase Vouchers", "All Stock Vouchers")
 
 			[Field: ERPException]
 				
@@ -211,7 +211,7 @@
 		Add : Option: ERPException StockGroup 		: ##vObjectType = "Stock Group"
 		Add : Option: ERPException StockItem 		: ##vObjectType = "StockItem"
 		Add : Option: ERPException Godown	 		: ##vObjectType = "Godown"
-		Add : Option: ERPException Vouchers 		: ##vObjectType IN ("Voucher", "All Sales Vouchers", "All Purchase Vouchers")
+		Add : Option: ERPException Vouchers 		: ##vObjectType IN ("Voucher", "All Sales Vouchers", "All Purchase Vouchers", "All Stock Vouchers")
 					
 		[!Collection: ERPException Customer]
 			
@@ -279,7 +279,10 @@
 		[System: Formula]
 			
 			WebStatus_Error : if ##ERPExceptionShowAll then Yes else $WebStatus_Message Not in  ("Success", "Already Exists")
-			ERPExceptionVchTypeFilter : if ##vObjectType = "All Sales Vouchers" then $$IsSales:$VoucherTypeNAme else if ##vObjectType = "All Purchase Vouchers" then $$IsPurchase:$VoucherTypeNAme else $VoucherTypeName = ##vVoucherType
+			ERPExceptionVchTypeFilter : if ##vObjectType = "All Sales Vouchers" then $$IsSales:$VoucherTypeNAme else +
+										if ##vObjectType = "All Purchase Vouchers" then $$IsPurchase:$VoucherTypeNAme else +
+										if ##vObjectType = "All Stock Vouchers" then $$IsStockJrnl:$VoucherTypeNAme else +
+										$VoucherTypeName = ##vVoucherType
 
 
 ;; Show All button

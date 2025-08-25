@@ -218,9 +218,11 @@
 
 		Item: Blank
 		Indent: "Transactions"
+		Item: Purchase Invoice		: Call: SEND_PurchaseInvoice_Start
+		Item: Stock Entry			: Call: SEND_StockEntry_Start
 		Item: Sales Invoices 		: Call: SEND_SalesInvoice_Start
 		Item: Credit Notes 			: Call: SEND_CreditNoteInvoice_Start
-		Item: Purchase Invoice		: Call: SEND_PurchaseInvoice_Start
+		
 		Item: Payment and Receipt 	: Call: SEND_PymtRcpt_Start
 		Item: Contra 				: Call: SEND_Contra_Start
 
@@ -254,11 +256,12 @@
 
 [Include: send\09_SEND_CustomerOpeningInvoices.txt]
 [Include: send\09_SEND_SupplierOpeningInvoices.txt]
-[Include: send\10_SEND_Sales.txt]
-[Include: send\10_SEND_CreditNote.txt]
-[Include: send\11_SEND_Purchase.txt]
-[Include: send\12_SEND_CntrJrnl.txt]
-[Include: send\13_SEND_PymtRcpt.txt]
+[Include: send\10_SEND_Purchase.txt]
+[Include: send\10_SEND_StockEntry.txt]
+[Include: send\11_SEND_Sales.txt]
+[Include: send\12_SEND_CreditNote.txt]
+[Include: send\13_SEND_CntrJrnl.txt]
+[Include: send\14_SEND_PymtRcpt.txt]
 
 
 [Include: NamingSeries.txt]

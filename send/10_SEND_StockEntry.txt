@@ -1,0 +1,271 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_StockEntry]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.voucher'
+
+	RemoteRequest: SEND_StockEntry : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item : Send StockEntry : Call: SEND_StockEntry
+;	Add: Item: Send StockEntry Cont: Call: SEND_StockEntry_Start
+
+	[Function: SEND_StockEntry_Start]
+		
+		10 : Start Timer: SEND_StockEntry_Timer : 1
+		
+	[System: Events]
+		
+		SEND_StockEntry_Timer : Timer: True: Call: SEND_StockEntry
+
+
+[Function: SEND_StockEntry]
+
+	Variable : vName  : String
+	Variable: vMessage : String
+	Variable: vDocName : String
+	Variable: vStatus : Logical
+
+	06 : Do If: ($$NumItems:SEND_StockEntry_Tally = 0) :  Stop Timer: SEND_StockEntry_Timer
+	07 : Do If: ($$NumItems:SEND_StockEntry_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_StockEntry_Timer
+	09 : Start Progress: 1 : "Sending Purchase Invoices" : ""
+
+	10 : Walk Collection: SEND_StockEntry
+	11 : Set: vStatus : $Status
+	20 : 	If: $Status
+	21 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : "ID:"+$name
+	28a:		Set: vDocName : $docname
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Voucher, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 : 			Modify Object: (Voucher, ##vName).WebStatus_Message[1].WebStatus_Message : ##vMessage
+	33 : 			Modify Object: (Voucher, ##vName).WebStatus_DocName[1].WebStatus_DocName : ##vDocName
+	40 :		End Walk
+	42 :	End Batch Post
+	45 : 	End If
+	60 : End Walk
+	
+	65 : Do If: ($$NumItems:SEND_StockEntry_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_StockEntry_Timer : 1
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: StockEntry:TEst1 : Display: SEND_StockEntry
+
+[Report : SEND_StockEntry]
+	
+	Form: SEND_StockEntry
+	
+	[Form: SEND_StockEntry]
+		
+		Part: SEND_StockEntry
+		Delete: XMLTag
+
+	[Part: SEND_StockEntry]
+		
+		Line: SEND_StockEntry
+		Repeat: SEND_StockEntry : SEND_StockEntry_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_StockEntry]
+			;SE_debit_to
+			Field: SE_doctype, SE_stock_entry_type, SE_naming_series, SE_company, SE_posting_date,SE_posting_time
+			Field: SE_webstatus_docname, SE_tally_masterid, SE_vouchernumber
+			Field: SE_set_posting_time
+			Field: SE_tally_voucher_no
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit	
+			Explode: SE_items
+
+			[Field: SE_doctype]
+				
+				Set as: "Stock Entry"
+				JSONTag: "doctype"
+
+			[Field: SE_stock_entry_type]
+				
+				Set as: "Repack"
+				JSONTag: "stock_entry_type"
+
+			[Field: SE_naming_series]
+				
+				Set as: @@ERPNextNamingSeries
+				JSONTag: "naming_series"
+
+				
+			[Field: SE_company]
+				
+				Set as: @@ERPNextBranch
+				JSONTag: "company"
+
+			[Field: SE_posting_date]
+				
+				Set as: $$GetSqlDate:$Date
+				JSONTag: "posting_date"
+
+			[Field: SE_posting_time]
+				
+				Set as: $$MachineTime
+				JSONTag: "posting_time"
+
+			[Field: SE_webstatus_docname]
+				
+				Set as: if $$IsEmpty:$WebStatus_DocName then "NA" else $WebStatus_DocName
+				JSONTag: "webstatus_docname"
+				
+			[Field: SE_tally_masterid]
+				
+				Set as: $masterid
+				JSONTag: "tally_masterid"
+
+			[Field: SE_vouchernumber]
+				
+				Set as: $vouchernumber
+				JSONTag: "tally_voucherno"
+			
+			[Field: SE_set_posting_time]
+				
+				Set as: 1
+				JSONTag: "set_posting_time"
+
+			[Field: SE_tally_voucher_no]
+				
+				Set as: $VoucherNumber
+				JSONTag: "tally_voucher_no"
+				
+   
+	[Part: SE_items]
+		
+		Line: SE_items
+		Repeat: SE_items : SEND_StockEntry_Tally_In_Out
+		Scroll: Vertical
+				
+		[Line : SE_items]
+			
+			Field: SE_item_code, SE_item_name, SE_description, SE_item_group, SE_qty, SE_stock_qty, SE_uom, SE_stock_uom
+			Field: SE_conversion_factor
+			Field: SE_source_warehouse, SE_target_warehouse, SE_cost_center
+			JSONTag: "items"
+			
+			[Field: SE_item_code]
+				
+				JSONTag : "item_code"
+				Set as: if $$IsEmpty:$Item_Alias:StockItem:$StockItemName and $$IsEmpty:$partno:StockItem:$StockItemName then $MasterId:StockItem:$StockItemName else if $$IsEmpty:$Item_Alias:StockItem:$StockItemName then $partno:StockItem:$StockItemName else $Item_Alias:StockItem:$StockItemName
+
+			[Field: SE_item_name]
+				
+				Set as: $StockItemNAme
+				JSONTag: "item_name"
+				
+			[Field: SE_description]
+
+				Set as: $StockItemName
+				JSONTag: "description"
+
+
+			[Field: SE_item_group]
+				
+				JSONTag: "item_group"
+				Set as: if $$SysName:Primary = $Parent:StockItem:$StockItemName then "All Item Groups" else $Parent:StockItem:$StockItemName
+
+			[Field: SE_qty]
+
+				Type: Number
+				Set as: $BilledQty ;if $$IsDebitNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
+				JSONTag: "qty"
+				Format: "Decimal:2"
+
+			[Field: SE_stock_qty]
+				
+				Type: Number
+				Set as: $BilledQty ;if $$IsDebitNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
+				JSONTag: "stock_qty"
+				Format: "Decimal:2"
+
+			[Field: SE_uom]
+
+				Set as: $BaseUnits:StockItem:$StockItemName
+				JSONTag: "uom"
+
+			[Field: SE_stock_uom]
+
+				Set as: $BaseUnits:StockItem:$StockItemName
+				JSONTag: "stock_uom"
+
+			[Field: SE_conversion_factor]
+				
+				Type: Number
+				Set as: 1
+				JSONTag: "conversion_factor"
+
+			[Field: SE_source_warehouse]
+
+				Set as: if $ISDEEMEDPOSITIVE = "No" then $Warehouse + " - " +@@EnableERPNextCmpAbbr else ""
+				JSONTag: "s_warehouse"
+
+			[Field: SE_target_warehouse]
+
+				Set as: if $ISDEEMEDPOSITIVE = "Yes" then $Warehouse + " - " +@@EnableERPNextCmpAbbr else ""
+				JSONTag: "t_warehouse"
+
+			[Field: SE_cost_center]
+
+				Set as: "Main - " + @@EnableERPNextCmpAbbr
+				JSONTag: "cost_center"
+
+
+[Collection: SEND_StockEntry_Tally]
+
+	Type		: Vouchers : VoucherType
+	Child Of	: $$VchTypeStockJrnl
+	Belongs To	: Yes
+	Filter 		: WebStatus
+	Fetch		: VoucherTypeName, PartyLedgerNAme ,Date, Narration, Amount, WebStatus_DocName, Reference, ReferenceDate
+	Fetch		: InventoryEntriesIn.*, InventoryEntriesOut.*
+	Filter		: NonCancelled
+	Filter		: NonOptional
+
+;	Filter: PURCDeFilter
+;	
+;	[System: Formula]
+;		
+;		PURCDeFilter : $Reference = "INVCMH2100083"
+
+
+
+[Collection: SEND_StockEntry_Tally_In_Out]
+
+	Collection	: SEND_StockEntry_Tally_Out, SEND_StockEntry_Tally_In
+	Keep Source	: ().
+
+	[Collection: SEND_StockEntry_Tally_In]	
+
+		Source Collection 	: SEND_StockEntry_Tally
+		Walk				: InventoryEntriesIn
+		Compute				: StockItemName		: $StockItemName
+		Compute				: BilledQty		: $BilledQty
+		Compute				: Warehouse		: $BatchAllocations[1].GodownName
+		Compute				: ISDEEMEDPOSITIVE : $ISDEEMEDPOSITIVE
+		Compute				: Object Type		: "In"
+	
+	[Collection: SEND_StockEntry_Tally_Out]	
+
+		Source Collection 	: SEND_StockEntry_Tally
+		Walk				: InventoryEntriesOut
+		Compute				: StockItemName		: $StockItemName
+		Compute				: BilledQty		: $BilledQty
+		Compute				: Warehouse		: $BatchAllocations[1].GodownName
+		Compute				: ISDEEMEDPOSITIVE : $ISDEEMEDPOSITIVE
+		Compute				: Object Type		: "Out"
+	
+;; End-Of-File	
