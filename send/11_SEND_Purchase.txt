@@ -81,8 +81,8 @@
 			;PI_debit_to
 			Field: PI_doctype, PI_naming_series, PI_supplier, PI_company, PI_posting_date,PI_posting_time, PI_due_date, PI_currency
 			Field: PI_gst_category, PI_remarks, PI_webstatus_docname, PI_tally_masterid, PI_vouchernumber
-			Field: PI_set_posting_time
-			Field: PI_is_return,PI_bill_no, PI_bill_date;, PI_tally_voucher_no
+			Field: PI_set_posting_time, SI_update_stock
+			Field: PI_is_return,PI_bill_no, PI_bill_date, PI_tally_voucher_no
 			JSONTag: "data"
 			Empty: $$Line > @@RecordsLimit	
 			Explode: PI_items
@@ -100,7 +100,7 @@
 
 			[Field: PI_supplier]
 				
-				Set as:$PartyLedgerName
+				Set as: if $$IsEmpty:($LedgerCode:Ledger:$PartyLedgerName) then $PartyLedgerName else $LedgerCode:Ledger:$PartyLedgerName
 				JSONTag: "supplier"
 				
 			[Field: PI_company]
@@ -129,6 +129,7 @@
 				
 				Set as: "INR"
 				JSONTag: "currency"
+				Invisible: Yes
 
 			[Field: PI_base_total]
 				
@@ -192,10 +193,10 @@
 				JSONTag: "bill_date"
 				Set as: $$GetSqlDate:$ReferenceDate
 
-;			[Field: PI_tally_voucher_no]
-;				
-;				Set as: $VoucherNumber
-;				JSONTag: "tally_voucher_no"
+			[Field: PI_tally_voucher_no]
+				
+				Set as: $VoucherNumber
+				JSONTag: "tally_voucher_no"
 				
 
 
@@ -207,7 +208,7 @@
 				
 		[Line: PI_items]
 			
-			Field: PI_item_code, PI_item_name, PI_description, PI_gst_hsn_code, PI_item_group, PI_qty, PI_stock_qty, PI_uom, PI_stock_uom
+			Field: PI_item_code, PI_item_name, PI_description, PI_gst_hsn_code, PI_item_group, PI_qty, PI_stock_qty, PI_received_qty, PI_rejected_qty, PI_uom, PI_stock_uom
 			Field: PI_conversion_factor, PI_rate, PI_base_rate, PI_stock_uom_rate
 			Field: PI_amount, PI_base_amount, PI_expense_account, PI_warehouse, PI_cost_center, PI_item_tax_template
 			Field: PI_base_price_list_rate, PI_discount_percentage, PI_price_list_rate
@@ -238,7 +239,7 @@
 			[Field: PI_item_group]
 				
 				JSONTag: "item_group"
-				Set as: $Parent:StockItem:$StockItemName
+				Set as: if $$SysName:Primary = $Parent:StockItem:$StockItemName then "All Item Groups" else $Parent:StockItem:$StockItemName
 
 			[Field: PI_qty]
 
@@ -253,6 +254,22 @@
 				Set as: $BilledQty ;if $$IsDebitNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
 				JSONTag: "stock_qty"
 				Format: "Decimal:2"
+
+			[Field: PI_received_qty]
+				
+				Type: Number
+				Set as: $BilledQty ;if $$IsDebitNote:$VoucherTypeName then $$Abs:$$Number:$billedQty * -1 else $$Abs:$$Number:$billedQty
+				JSONTag: "received_qty"
+				Format: "Decimal:2"
+
+			[Field: PI_rejected_qty]
+				
+				Type: Number
+				Set as: 0
+				JSONTag: "rejected_qty"
+				Format: "Decimal:2"
+
+
 
 			[Field: PI_uom]
 
@@ -309,8 +326,9 @@
 
 			[Field: PI_expense_account]
 
-				Set as: "Cost of Goods Sold - " + @@EnableERPNextCmpAbbr
+				Set as: @expense_account + " - " + @@EnableERPNextCmpAbbr
 				JSONTag: "expense_account"
+				expense_account : $AccountingAllocations[1].LedgerName
 
 			[Field: PI_warehouse]
 

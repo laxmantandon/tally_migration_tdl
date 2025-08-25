@@ -30,13 +30,13 @@
 				[Form: EnableERPNextKeys]
 					
 					Part: EnableERPNextKeys
-					Height: 40% Screen
+					Height: 50% Screen
 					Width: 60% Screen
 					
 					[Part: EnableERPNextKeys]
 						
 						Line: FormSubTitle, EnableERPNextHost, EnableERPNextKeys, EnableERPNextSecret, EnableERPNextRecords, EnableERPNextBranch, +
-							  EnableERPNextCmpAbbr, EnableERPNextLastSyncOn, EnableERPNextResetFlag
+							  EnableERPNextCmpAbbr, EnableERPNextLastSyncOn, EnableERPNextResetFlag, EnableERPNextUpdateStock
 						Local: Field: FormSubTitle : Info: "ERPNExt Api Configuration"
 						Local: Line: Default : Space Top: 0.30
 						Local: Line: Default : Space Bottom: 0.30
@@ -135,6 +135,20 @@
 								Set as: "1"
 								Set Always: Yes
 
+
+						[Line: EnableERPNextUpdateStock]
+						
+							Field: Long Prompt, EnableERPNextUpdateStock
+							Local: Field: Long Prompt : Info: "Update Stock:"
+							
+							[Field: EnableERPNextUpdateStock]
+								
+								Use: Name Field 
+								Case: Normal
+								Storage: EnableERPNextUpdateStock
+								Set as: "0"
+								Set Always: Yes
+
 	[System: UDf]
 		
 		EnableERPNextImp 		: Logical	: 31588
@@ -146,6 +160,7 @@
 		ERPNextResetFlag		: String	: 31594
 		EnableERPNextRecords	: Number	: 31595
 		EnableERPNextCmpAbbr 	: String	: 31596
+		EnableERPNextUpdateStock : String: 31597
 
 [System: Formula]
 	
@@ -162,6 +177,7 @@
 
 	AuthToken 			: @@ERPNextAPIKey + ":" + @@ERPNextAPISecret
 
+	EnableERPNextUpdateStock : $EnableERPNextUpdateStock:Company:##SVCurrentCompany
 
 	locExpressErpNext	: "ERPNext"
 
@@ -176,6 +192,9 @@
 		Item: Migrate to ERPNext 	: Menu	: ExpressIntegration
 		Item: Exception 			: Alter	: ERPExcepRep
 		Item: Resetting 			: Menu 	: SyncConfig
+		Item: Blank
+		Item: Customer Mapping 		: Call  : ImportExcelCustMapp
+		Item: Item Mapping   : Call  : ImportExcelDataNew
 	
 	[Menu: ExpressIntegrationExp]
 
@@ -248,3 +267,6 @@
 [Include: NamingSeriesConfig.txt]
 
 [Include: ETPL.txt]
+
+[Include: CustomerMappingTool\CustomerMaster.txt]
+[Include: ItemMappingTool\Easyac.txt]

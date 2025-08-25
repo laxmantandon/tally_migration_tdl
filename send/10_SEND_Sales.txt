@@ -12,9 +12,9 @@
 	RemoteRequest: SEND_SalesInvoice : UTF8
 	JSON Object Path: "message:1"
 	
-;[#Menu: ExpressIntegration]
-;	
-;;	Add: Item : Send SalesInvoice One : Call: SEND_SalesInvoice
+[#Menu: ExpressIntegration]
+	
+	Add: Item : Send SalesInvoice One : Call: SEND_SalesInvoice
 ;	Add: Item: Send SalesInvoice_Cont : Call: SEND_SalesInvoice_Start
 
 	[Function: SEND_SalesInvoice_Start]
@@ -36,7 +36,7 @@
 	06 : Do If: ($$NumItems:SEND_SalesInvoice_Tally = 0) :  Stop Timer: SEND_SalesInvoice_Timer
 	07 : Do If: ($$NumItems:SEND_SalesInvoice_Tally = 0) :  Return
 
-	08 : Stop Timer: SEND_SalesInvoice_Timer
+;	08 : Stop Timer: SEND_SalesInvoice_Timer
 	09 : Start Progress: 1 : "Sending Sales Invoices" : ""
 
 	10 : Walk Collection: SEND_SalesInvoice
@@ -56,7 +56,7 @@
 	45 : 	End If
 	60 : End Walk
 	
-	65 : Do If: ($$NumItems:SEND_SalesInvoice_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_SalesInvoice_Timer : 1
+;	65 : Do If: ($$NumItems:SEND_SalesInvoice_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_SalesInvoice_Timer : 1
 
 ;[#Menu: Gateway of Tally]
 ;	
@@ -78,8 +78,8 @@
 		Scroll: Vertical
 		
 		[Line: SEND_SalesInvoice]
-			;SI_debit_to
-			Field: SI_doctype, SI_naming_series, SI_customer, SI_company, SI_posting_date,SI_posting_time, SI_due_date, SI_currency
+			;SI_debit_to, SI_due_date
+			Field: SI_doctype, SI_naming_series, SI_customer, SI_company, SI_posting_date,SI_posting_time, SI_currency
 			Field: SI_gst_category, SI_remarks, SI_webstatus_docname, SI_tally_masterid, SI_vouchernumber
 			Field: SI_checked_by, SI_arranged_by, SI_noted_by, SI_electrician, SI_BiltyNumber, SI_BillofLadingDate, SI_BasicShipVesselNo
 			Field: SI_BasicShippedBy
@@ -90,6 +90,7 @@
 			Empty: $$Line > @@RecordsLimit	
 			Explode: SI_items
 			Explode: SI_ledgers
+;			Explode: SI_payment_terms
 
 			[Field: SI_doctype]
 				
@@ -103,8 +104,12 @@
 
 			[Field: SI_customer]
 				
-				Set as:$PartyLedgerName
+				Set as: if $$IsEmpty:($LedgerCode:Ledger:$PartyLedgerName) then $PartyLedgerName else $LedgerCode:Ledger:$PartyLedgerName
 				JSONTag: "customer"
+				
+				[#Object: Ledger]
+					
+					LedgerCode : $$Alias
 				
 			[Field: SI_company]
 				
@@ -132,6 +137,7 @@
 				
 				Set as: "INR"
 				JSONTag: "currency"
+				Invisible: YEs
 
 			[Field: SI_base_total]
 				
@@ -181,9 +187,8 @@
 
 			[Field: SI_update_stock]
 				
-				Set as: 0
+				Set as: @@EnableERPNextUpdateStock
 				JSONTag: "update_stock"
-				Invisible: Yes
 
 			[Field: SI_is_return]
 				
@@ -249,6 +254,7 @@
 				
 				Set as: $$GetSqlDate:$IRNAckDate
 				JSONTag: "ack_date"
+				Invisible: Yes
 				
 			[Field: SI_IRN]
 				
@@ -321,7 +327,7 @@
 			[Field: SI_item_group]
 				
 				JSONTag: "item_group"
-				Set as: $Parent:StockItem:$StockItemName
+				Set as: if $$SysName:Primary = $Parent:StockItem:$StockItemName then "All Item Groups" else $Parent:StockItem:$StockItemName
 
 			[Field: SI_qty]
 
@@ -391,8 +397,10 @@
 
 			[Field: SI_income_account]
 
-				Set as: "Sales" + " - " + @@EnableERPNextCmpAbbr
+				Set as: @income_account + " - " + @@EnableERPNextCmpAbbr
+;				Set as: "Sales" + " - " + @@EnableERPNextCmpAbbr
 				JSONTag: "income_account"
+				income_account: $ACCOUNTINGALLOCATIONS[1].LEDGERNAME
 
 			[Field: SI_warehouse]
 
@@ -516,6 +524,46 @@
 				Set as: $$CollNumTotal:InventoryEntries:$Amount
 				JSONTag: "base_total"
 				Format: "Decimal:3"
+
+
+	[Part: SI_payment_terms]
+		
+		Line: SI_payment_terms
+		Repeat: SI_payment_terms : SI_payment_terms
+		Scroll: Vertical
+		Set: 1
+				
+		[Line: SI_payment_terms]
+			;SILed_rate
+			Field: SI_payment_terms, SI_payment_terms1
+			JSONTag: "payment_schedule"
+			
+			[Field: SI_payment_terms]
+				
+				Set as: $due_date
+;				"On Net Total"
+				JSONTag: "due_date"
+
+
+			[Field: SI_payment_terms1]
+				
+				Set as: $due_date
+;				"On Net Total"
+				JSONTag: "payment_terms"
+
+							[Collection: SI_payment_terms]
+								
+								Object: SI_payment_terms
+								
+							[Object : SI_payment_terms]
+								
+								name 				: #SI_posting_date
+								due_date	 		: #SI_posting_date
+								invoice_portion		: 100
+								base_payment_amount	: #SI_base_total
+								doctype			 	: "Payment Schedule"
+
+
 
 
 [Collection: SEND_SalesInvoice_Tally]

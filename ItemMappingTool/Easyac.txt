@@ -1,0 +1,63 @@
+;;Shivgoraksh
+;D:\Tally.ERP961\tally.exe /NOGUI "E:\dropbox\easyac" /LOAD:00001 /NOINITDL "/TDL:E:\dropbox\easyac\easyac.txt" "/SETVAR:ExcelFilePath:C:\Tally.xls" /PREACTION:Call:ImportExcelData
+
+[Function : ImportSalesDetails]
+	
+	12 : Query Box: Are you Sure, you want to process : Yes: No
+	15 : If: $$LastResult
+	20 : Call: ImportStockItemsSales
+	30 : End If
+
+[Collection: LVExcelCollSales]
+	
+	Use: LVExcelColl
+	
+/**Import Stock Items in Saless*/
+
+	[Collection : ExcelSalesStockItems]
+
+		Source Collection : LVExcelCollSales
+		By : ExcelStockItemName : $Column1
+		By : ExcelERPId : $Column2
+		Filter : StockITemSalesFilter   		
+
+		[System : Formula]
+
+			StockITemSalesFilter  : $ExcelERPId not contains "Item Code"
+
+	[Function : ImportStockItemsSales]
+
+		Variable 		: MSTNameExist 	: Logical
+		Variable 		: NumItems		: Number
+		Variable 		: TempNAme 		: String
+		Variable 		: PCounter		: Number
+
+		Variable : vStockItem : String
+
+
+		010			: SET 		: NumItems : $$NumItems:ExcelSalesStockItems
+		010a	: If: ##NumItems > 0
+		011			: SET 		: PCOunter : 1
+			015			: IF : ##NumItems > 0
+
+		020			: START PROGRESS			: ##NumItems : "Importing Stock Items" : "Primary Group" 
+
+		100			: WALK COLLECTION : ExcelSalesStockItems
+		102 		: Set : vStockItem : $ExcelStockItemName
+
+		110			: 	if : not $$IsEmpty:($Name:StockItem:##vStockItem) ;$ExcelStockItemNAme
+		140			: 		NEW OBJECT 	: STOCKITEM : ##vStockItem
+		145 		:			Set Value	: PartNo : $ExcelERPId
+		250			: 		Accept Alter
+		252 		:	End IF 
+
+		270			: 	INCR 			: PCounter
+		280			: 	SHOW Progress 	: ##PCounter
+		290			: END WALK
+		300		    : END Progress
+		310 		: RETURN : TRUE
+		400			: End IF 
+		500 : End IF
+
+
+[Include: EnableDisable.txt]

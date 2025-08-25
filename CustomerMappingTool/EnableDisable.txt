@@ -1,0 +1,43 @@
+;;Shivgoraksh
+;;Enable Disable At Company Level
+[#Part: CMP TallyShopFeatures Left ]
+  
+	Add :  Line : At End : EnableCustMapp
+
+	[Line : EnableCustMapp]
+		
+		Field : Long Prompt,EnableCustMapp
+		Local : Field : Long Prompt : Info : "Enable Customer Mapping Add-on ?"
+		
+		[Field : EnableCustMapp]
+			
+			Use : Logical Field 
+			Storage : EnableCustMapp
+
+			[System : UDF]
+				
+				EnableCustMapp : Logical : 30001
+			
+			[System : Formula]
+				
+				EnableCustMapp : $EnableCustMapp:Company:##SVCurrentCompany
+
+;[#Menu: Display Menu]
+;
+;	OPtion : Import Indirect CustMapp : @@EnableCustMapp
+;
+;	[!Menu: Import Indirect CustMapp]
+;		
+;		Add : Key Item : Before  : @@LocQuit : Customer Mapping : K : Call  : ImportExcelCustMapp
+	
+;;Function To Import Excel Data
+[Function: ImportExcelCustMapp]
+
+	20 : Alter : ExcelFilePath
+	32 : Query Box: Are You Sure you want to Process ? : Yes: No
+	33 : If: $$LastResult
+	35 : Call : ReadExcelData
+	36 : 	If: $$NumItems:LVExcelColl > 0
+	50 : 		Call : ImportCustomers
+	70 : 	End If
+	75 : End If

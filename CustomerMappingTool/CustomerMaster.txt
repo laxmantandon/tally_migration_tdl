@@ -1,0 +1,73 @@
+;;Shivgoraksh
+
+;;Function To Call Function For Creating Customers
+[Function : ImportCustomers]
+	
+	15 : Call: AlterCustomers
+		
+;;Function To Create Customers
+[Function : AlterCustomers]
+	
+	Variable : IsLedgerExists : Logical
+
+	Variable : JCNumSteps 			: Number
+	Variable : JCCounter 			: Number
+	Variable : StrippedLedgerName 	: String
+	Variable : CustomerName			: String
+	Variable : CustomerCode			: String
+	
+	00 : Start Batch Post: 150
+	01 : If : $$NumItems:ExcelCustomerNameColl > 0
+	02 : Set : JCNumSteps : $$NumItems:ExcelCustomerNameColl
+	02a: Set : JCCounter : 0
+	03 : Start Progress : ##JCNumSteps : "Updating Customer ID"
+	10 : Walk : ExcelCustomerNameColl
+	11 : Set : CustomerName : $CustomerName
+	12: Set: CustomerCode: $CustomerCode
+
+	20 : Set : IsLedgerExists : IF Not $$IsEmpty:($Name:Ledger:##CustomerName) then yes else no
+	30 : If : ##IsLedgerExists
+	40 : Set Object : (Ledger, ##CustomerName).
+	41 : Set Target
+	42 : Set Value : Name : ##CustomerName 
+	
+	64d : Insert Collection Object: Name
+	64e : Set Value: Name : ##CustomerCode
+	64f  : Set Target: ..
+
+	95a : Accept Alter
+
+	96 : End if 
+	97 : Increment : JCCOunter
+	98 : Show Progress : ##JCCounter
+	100 : End Walk
+	120 : End Progress
+	200 : ENd IF
+	210 : End Batch Post
+	;9220: Log: "Code" + $CustomerCode
+
+
+
+
+;;Customer Name Collection
+[Collection : ExcelCustomerNameColl]
+	
+	Source Collection 	: LVExcelCustomerColl
+	By : CustomerCode	: $Column2
+	By : CustomerName	: $Column1
+	
+	Compute: CustomerCode: $Column2
+	Compute: ExcelParent : "Sundry Debtors"
+
+	Filter : CustomerNameTitle
+	
+	[System: Formula]
+		
+		CustomerNameTitle : $CustomerCode != "ID"
+		
+[Collection: LVExcelCustomerColl]
+	
+	Use	: LVExcelColl
+
+
+[Include: EnableDisable.txt]

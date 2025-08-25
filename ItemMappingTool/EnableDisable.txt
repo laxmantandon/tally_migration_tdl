@@ -1,0 +1,388 @@
+;;Shivgoraksh
+
+;;;====EnableDisable====;;;
+
+[#Part: CMP TallyShopFeatures Left]
+	
+	Add : Line : At End : EnableExcelImport;,ExcelImportLedConfig
+			
+	[Line : EnableExcelImport]
+		
+		Field : Long Prompt,EnableExcelImport
+		Local : Field : Long Prompt : Info : "Enable Item Mapping Import ?"
+		
+	[Field : EnableExcelImport]
+		
+		Use : Logical Field 
+		Storage : EnableExcelImport
+
+	[System : UDF]
+		
+		EnableExcelImport : Logical : 30001
+
+	[System: Formula]
+		
+		EnableExcelImport : $EnableExcelImport:Company:##SVCurrentCompany
+
+;[#Menu: Display Menu]
+;
+;	OPtion : Import Indirect Easyac : @@EnableExcelImport
+;
+;	[!Menu: Import Indirect Easyac]
+;
+;;		Add		: Key Item	: After	 : @@locIndentUtilities	: @@locImportofData		: O : Menu	: Import of Data	: NOT $$IsRemoteCompany
+;;		Add		: Key Item	: After	 : @@locImportofData	: @@LocBanking			: N	: Menu	: Banking				 : $$IsAccountingOn:$$CurrentCompany
+;;		Add		: Item		: Before : @@locImportofData	: BLANK
+;			
+;		Add : Key Item : Before  : @@LocQuit : Item Mapping Import : K : Call  : ImportExcelDataNew
+	
+
+
+;;;Function from Gateway
+[Function: ImportExcelDataNew]
+
+	20 : Alter : ExcelFilePath
+	32 : Query Box: Are You Sure you want to Process ? : Yes: No
+	33 : If: $$LastResult
+	35 : Call : ReadExcelData
+	36 : If: $$NumItems:LVExcelColl > 0
+	60 : Call : ImportSalesDetails
+
+	70 : End If
+	75 : End If
+
+
+
+
+
+
+
+
+;;; Function from Command line
+
+	[Function : ImportExcelData]
+		
+;		Parameter: ExcelFilePath : String
+
+		Variable: CurrentVchId : String
+		Variable: MyImportType : String
+
+		10 : Call : ReadExcelData
+		
+;		15 : Query Box: "Are You Sure ?" : Yes:No
+;		20 : If: $$LastResult
+;		25 : Walk Collection : ExcelGroupColl
+;		26 : Set: CurrentVchId 	: $ExcelVoucherNumber
+;		27 : Set: ImportType 	: $ExcelVoucherTypeName
+;		28 : If: ##MyImportType = "Purchase"
+		25 : Call: AutoSetting
+		30 : Call : ImportPurchaseDetails
+;		31 : End If
+;		32 : If: ##MyImportType = "Sale"
+		40 : Call : ImportSalesDetails
+		45 : Call: ImportReceipts
+
+;		41 : End If
+		;41 : Log: $ExcelVoucherNumber + " / " + $ExcelVoucherTypeName
+;		45 : End Walk
+;		50 : End If
+
+
+;	[Collection: ExcelGroupColl]
+;		
+;		Source Collection: LVExcelColl
+;		By: ExcelVoucherNumber : $Column1
+;		By: ExcelVoucherTypeNAme : $Column3
+;		Filter: ExcelGroupFilter
+;		
+;			[System: Formulae]
+;				
+;				ExcelGroupFilter : $ExcelVoucherNumber not contains "INV"
+
+
+
+	[Function : ReadExcelData]
+		
+		Variable : SORowIndex 			: Number : 1
+		Variable : SOListIndex 			: String
+		Variable : SOIndexFromKey		: Number
+		Variable : SOProgressCounter 	: Number 
+		Variable : Counter : Number
+
+
+;		0200 	: 	Alter 	: 	ExcelFilePath
+
+;		0210	: 	Query Box: "Are You Sure You want to Import?" : Yes : NO
+;
+;		0220  	: 	IF  	:	$$LastResult
+
+		0230	:	List Delete 	:	LVExcelData
+		0240	:	Set 	: 	Counter : 1
+		0250	:	List Delete 	:	 LVExcelData
+
+		1000	: 	Open File		: 	##ExcelFilePath 	: 	Excel 	: 	Read
+
+		1010	: 	While			: 	NOT $$IsEmpty:($$FileReadCell:##SORowIndex:1)
+
+		1011	:	IF 				:	##Counter = 1
+
+		1012	:	Start Progress 	:	10:"Reading from Excel" : "Getting Items"
+
+		1013	:	End IF
+		
+		1020 	: 	Set 			: 	SOListIndex 		: 	##SORowIndex
+
+		1030 	: 	List Add 		: 	LVExcelData : 	##SOListIndex
+
+		1040	: 	Set				: 	SOIndexFromKey 	: 	$$ListIndex:LVExcelData:##SOListIndex 
+		
+		1050	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column1		: 	$$FileReadCell:##SORowIndex:1
+		1060	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column2		: 	$$FileReadCell:##SORowIndex:2
+;		1070	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column3		: 	$$FileReadCell:##SORowIndex:3
+;		1075	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column4		: 	$$FileReadCell:##SORowIndex:4
+;		1080	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column5		: 	$$FileReadCell:##SORowIndex:5
+;		1085	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column6		: 	$$FileReadCell:##SORowIndex:6
+;		1090	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column7		: 	$$FileReadCell:##SORowIndex:7
+;		1100	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column8		: 	$$FileReadCell:##SORowIndex:8
+;		1101	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column9		: 	$$FileReadCell:##SORowIndex:9
+;		1102	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column10		: 	$$FileReadCell:##SORowIndex:10
+;		1103	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column11		: 	$$FileReadCell:##SORowIndex:11
+;		1104	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column12		: 	$$FileReadCell:##SORowIndex:12
+;		1105	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column13		: 	$$FileReadCell:##SORowIndex:13
+;		1106	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column14		: 	$$FileReadCell:##SORowIndex:14
+;		1107	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column15		: 	$$FileReadCell:##SORowIndex:15
+;		1108	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column16		: 	$$FileReadCell:##SORowIndex:16
+;		1109	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column17		: 	$$FileReadCell:##SORowIndex:17
+;		1110	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column18		: 	$$FileReadCell:##SORowIndex:18
+;		1111	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column19		: 	$$FileReadCell:##SORowIndex:19
+;		1112	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column20		: 	$$FileReadCell:##SORowIndex:20
+;		1113	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column21		: 	$$FileReadCell:##SORowIndex:21
+;		1114	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column22		: 	$$FileReadCell:##SORowIndex:22
+;
+;		1115	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column23		: 	$$FileReadCell:##SORowIndex:23
+;		1116	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column24		: 	$$FileReadCell:##SORowIndex:24
+;		1117	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column25		: 	$$FileReadCell:##SORowIndex:25
+;		1118	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column26		: 	$$FileReadCell:##SORowIndex:26
+;		1119	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column27		: 	$$FileReadCell:##SORowIndex:27
+;		1120	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column28		: 	$$FileReadCell:##SORowIndex:28
+;		1121	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column29		: 	$$FileReadCell:##SORowIndex:29
+;		1122	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column30		: 	$$FileReadCell:##SORowIndex:30
+;		1123	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column31		: 	$$FileReadCell:##SORowIndex:31
+;		1124	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column32		: 	$$FileReadCell:##SORowIndex:32
+;		1125	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column33		: 	$$FileReadCell:##SORowIndex:33
+;		1126	: 	Set				: 	LVExcelData[##SOIndexFromKey].Column34		: 	$$FileReadCell:##SORowIndex:34
+
+
+
+		1270	: 	Increment		: 	SORowIndex
+		1271	: 	Increment		: 	Counter
+		1272	:	Show Progress	:	##Counter
+
+		3350	: 	End While
+		
+;		5000 : End if	
+		5400 	:	End Progress
+	
+		5500 : Display : PreviewExcelData
+
+
+
+	[Report :ExcelFilePath]
+		
+		Form : ExcelFilePath
+		
+	[Form: ExcelFilePath]
+		
+		Part : ExcelFilePath
+		
+	[Part : ExcelFilePath]
+		
+		Line : ExcelFilePath;,ExcelImportType
+		
+		[Line : ExcelFilePath]
+			
+			Field : Medium Prompt,ExcelFilePath
+			Local : Field : Medium Prompt : Info : "Excel File Path ?"
+			
+		[Field : ExcelFilePath]
+			
+			Use : Name Field 
+			Modifies : ExcelFilePath
+			Width : @@NameWidth * 1.5
+			Skip Forward: Yes
+			Set Always: Yes
+			Control: InvalidFilePath : Not $$IsFileExists:$$Value
+			
+				[System: Formulae]
+					
+					InvalidFilePath : "Invalid File Path"
+			
+
+		[Line : ExcelImportType]
+			
+
+			Field: Medium Prompt,ExcelImportType
+			Local : Field : Medium Prompt : Info : "Import Type :"
+			
+			[Field : ExcelImportType]
+				
+				Use : Name Field 
+				Width : @@NameWidth * 1.5
+				Modifies : ImportType
+				Table : ImportType
+				Show Table : Always
+				
+				[Table : ImportType]
+					
+					List : "Sales"
+
+		[Variable : ExcelFilePath]
+			
+			Type : String
+			Persist: Yes
+
+		[Variable : ImportType]
+			
+			Type : String
+
+		[System : Variable]
+			
+			ExcelFilePath : ""
+			ImportType : ""
+			
+
+[Object: LVExcelData]
+
+[Variable		: 	LVExcelData]
+
+	Variable 	: 	Column1 	:	String
+	Variable 	: 	Column2 	:	String
+;	Variable 	: 	Column3 	:	String
+;	Variable 	: 	Column4 	:	String
+;	Variable 	: 	Column5 	:	String
+;	Variable 	: 	Column6 	:	String
+;	Variable 	: 	Column7 	:	String
+;	Variable 	: 	Column8 	:	String
+;	Variable 	: 	Column9 	:	String	
+;	Variable 	: 	Column10 	:	String
+;	Variable 	: 	Column11 	:	String
+;	Variable 	: 	Column12 	:	String
+;	Variable 	: 	Column13 	:	String
+;	Variable 	: 	Column14 	:	String
+;	Variable 	: 	Column15 	:	String
+;	Variable 	: 	Column16 	:	String
+;	Variable 	: 	Column17 	:	String
+;	Variable 	: 	Column18 	:	String
+;	Variable 	: 	Column19 	:	String
+;	Variable 	: 	Column20 	:	String
+;	Variable 	: 	Column21 	:	String
+;	Variable 	: 	Column22 	:	String
+;
+;	Variable 	: 	Column23 	:	String
+;	Variable 	: 	Column24	:	String	
+;	Variable 	: 	Column25 	:	String
+;	Variable 	: 	Column26 	:	String
+;	Variable 	: 	Column27 	:	String
+;	Variable 	: 	Column28 	:	String
+;	Variable 	: 	Column29 	:	String
+;	Variable 	: 	Column30 	:	String
+;	Variable 	: 	Column31 	:	String
+;	Variable 	: 	Column32 	:	String
+;	Variable 	: 	Column33 	:	String
+;	Variable 	: 	Column34 	:	String
+
+	Persistent 	:	Yes
+	
+[System : Variable]
+	
+	List Variable : LVExcelData
+
+
+
+[Collection : LVExcelColl]
+	
+	Data Source : Variable : LVExcelData
+	Fetch : *.*
+
+
+
+;[#Menu : Gateway of Tally]
+;	
+;	Add : Item : MyItem : Display : PreviewExcelData
+
+
+[Report : PreviewExcelData]
+	
+	Form : PreviewExcelData
+	
+	[Form : PreviewExcelData]
+		
+		PArt : PreviewExcelData
+		Height : 100% Page
+		Width : 100% Page
+		
+		[Part : PreviewExcelData]
+			
+			Line : PreviewExcelData
+			Repeat : PreviewExcelData : LVExcelColl
+			Scroll : Both
+			
+		[Line : PreviewExcelData]
+			
+			Field : PreviewExcelData,PreviewExcelData2,PreviewExcelData3,PreviewExcelData4,+
+					PreviewExcelData5,PreviewExcelData6,PreviewExcelData7,PreviewExcelData8,PreviewExcelData9,+
+					PreviewExcelData10
+			
+			[Field : PreviewExcelData]
+				
+				Use : Name Field
+				Set as : $Column1
+
+
+			[Field : PreviewExcelData2]
+				
+				Use : Name Field
+				Set as : $Column2
+				
+
+			[Field : PreviewExcelData3]
+				
+				Use : Name Field
+				Set as : $Column3
+				
+			[Field : PreviewExcelData4]
+				
+				Use : Name Field
+				Set as : $Column4
+				
+			[Field : PreviewExcelData5]
+				
+				Use : Name Field
+				Set as : $Column5
+				
+			[Field : PreviewExcelData6]
+				
+				Use : Name Field
+				Set as : $Column6
+				
+			[Field : PreviewExcelData7]
+				
+				Use : Name Field
+				Set as : $Column7
+
+			[Field : PreviewExcelData8]
+				
+				Use : Name Field
+				Set as : $Column8
+
+			[Field : PreviewExcelData9]
+				
+				Use : Name Field
+				Set as : $Column9
+
+			[Field : PreviewExcelData10]
+				
+				Use : Name Field
+				Set as : $Column10
+
+
