@@ -315,11 +315,11 @@
 	Belongs To	: Yes
 	Sort		: @@Default : $depth
 	Filter 		: WebStatus
-	Filter		: Item_DebugFilter
+	;Filter		: Item_DebugFilter
 	
 	[System: Formula]
 		
-		Item_DebugFilter: $Name = "0.89 UF"
+		Item_DebugFilter: $Name = "test"
 
 [#Form: StockItem]
 
