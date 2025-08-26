@@ -200,6 +200,7 @@
 
 	[Menu: ExpressIntegration]
 		Indent: "Accounts Masters"
+		Item: Account		 	: Call: SEND_Account_Start
 		Item: Customer Group 	: Call: SEND_CustomerGroup_Start
 		Item: Customer 			: Call: SEND_Customer_Start
 		Item: SupplierGroup 	: Call: SEND_SupplierGroup_Start
@@ -248,6 +249,7 @@
 [Include: send\02_SEND_Customer.txt]
 [Include: send\03_SEND_SupplierGroup.txt]
 [Include: send\04_SEND_Supplier.txt]
+[Include: send\04_SEND_Account.txt]
 [Include: send\05_SEND_Uom.txt]
 [Include: send\06_SEND_ItemGroup.txt]
 [Include: send\07_SEND_Item.txt]

@@ -128,6 +128,7 @@
 				Set as: if $GSTRegistrationType = "Regular" then "Registered Regular" else + 
 						If $GSTRegistrationType = "Composition" then "Registered Composition" else + 
 						If $GSTRegistrationType = "Consumer" then "Unregistered" else + 
+						If $GSTRegistrationType = "Unregistered/Consumer" then "Unregistered" else + 
 						If $GSTRegistrationType = "Unregistered" then "Unregistered" else ""
 						
 				JSONTag : "gst_category"

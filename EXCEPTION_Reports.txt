@@ -49,13 +49,10 @@
 				
 			[Table: List of Exp Objects]
 				
-				List: "Customer","Supplier","Supplier Group", "Customer Group", "Stock Item", "Group", "Stock Group", "Voucher", "Godown", "All Sales Vouchers", "All Purchase Vouchers", "All Stock Vouchers"
+				List: "Account", "Customer","Supplier","Supplier Group", "Customer Group", "Stock Item", "Group", "Stock Group", "Voucher", "Godown", "All Sales Vouchers", "All Purchase Vouchers", "All Stock Vouchers"
 				Full Height: Yes
 				Align: Center
 				Format: $$Name, 30
-		
-		
-		
 		
 		
 		[Function: ERPExcepRep]
@@ -111,7 +108,7 @@
 				Use: Name Field 
 				Set as: $Name
 				Full Width: Yes
-				Option: ERPException Customer : ##vObjectType = "Customer" or ##vObjectType = "Supplier"
+				Option: ERPException Customer : ##vObjectType = "Customer" or ##vObjectType = "Supplier" or ##vObjectType = "Account"
 				Option: ERPException StockItem : ##vObjectType = "StockItem"
 				Option: ERPException StockGroup : ##vObjectType = "Stock Group"
 				Option: ERPException CustomerGroup : ##vObjectType = "Customer Group" or ##vObjectType = "Supplier Group"
@@ -204,6 +201,7 @@
 
 	[Collection: ERPException]
 		
+		Add : Option: ERPException Account 			: ##vObjectType = "Account"
 		Add : Option: ERPException Customer 		: ##vObjectType = "Customer"
 		Add : Option: ERPException Supplier 		: ##vObjectType = "Supplier"
 		Add : Option: ERPException CustomerGroup 	: ##vObjectType = "Customer Group"
@@ -213,6 +211,15 @@
 		Add : Option: ERPException Godown	 		: ##vObjectType = "Godown"
 		Add : Option: ERPException Vouchers 		: ##vObjectType IN ("Voucher", "All Sales Vouchers", "All Purchase Vouchers", "All Stock Vouchers")
 					
+		[!Collection: ERPException Account]
+			
+			Type: Ledger
+			Belongs To: Yes
+			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName
+			Filter: WebStatus_Error
+			Filter: NonDebtors, NonCreditors
+
+
 		[!Collection: ERPException Customer]
 			
 			Type: Ledger

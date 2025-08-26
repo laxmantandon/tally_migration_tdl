@@ -1,0 +1,124 @@
+;; Shivgoraksh
+
+
+[Collection: SEND_Account]
+		
+	Export Header	: "Accept: application/json"
+	Export Header	: "Accept-Charset: utf-8"
+	Export Header	: "Authorization: " + "token " + @@AuthToken
+
+	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.account'
+;	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.create_address'
+
+	RemoteRequest: SEND_Account : UTF8
+	JSON Object Path: "message:1"
+	
+;[#Menu: ExpressIntegration]
+;	
+;;	Add: Item: Send Account : Call: SEND_Account
+;;	Add: Item: Send Account : Call: SEND_Account_Start
+;
+	[Function: SEND_Account_Start]
+		
+		10 : Start Timer: SEND_Account_Timer : 1
+
+	[System: Events]
+		
+		SEND_Account_Timer : Timer: True: Call: SEND_Account
+
+
+[Function: SEND_Account]
+
+	Variable : vName  : String
+	Variable : vMessage : String
+
+	Variable: vCounter_send : Number: 1
+	Variable: vStatus : String
+
+	06 : Do If: ($$NumItems:SEND_Account_Tally = 0) :  Stop Timer: SEND_Account_Timer
+	07 : Do If: ($$NumItems:SEND_Account_Tally = 0) :  Return
+
+	08 : Stop Timer: SEND_Account_Timer
+	09 : Start Progress: 1 : "Sending Account" : ""
+	
+	10 : Walk Collection: SEND_Account
+
+	12 : Set: vStatus : $Status
+;	20 : 	If: $Status
+	22 :	Start Batch Post
+	25 : 		Walk Collection: data
+	26 : 		Log: $name
+	28 : 		Set: vName : $name
+	29 : 		Set: vMessage : $message
+	30 : 			Modify Object: (Ledger, ##vName).WebStatus[1].WebStatus : @@ERPNextResetFlag
+	32 :			Modify Object: (Ledger, ##vName).WebStatus_message[1].WebStatus_message : ##vMessage
+	40 :		End Walk
+	45 : 	End Batch Post
+;	50 : 	End If
+	60 : End Walk
+
+;	61 : StopTimer: SEND_Account_Timer 
+	65 : Do If: ($$NumItems:SEND_Account_Tally > 0 and Not $$IsEmpty:##vStatus) :  Start Timer: SEND_Account_Timer : 1
+	
+
+;[#Menu: Gateway of Tally]
+;	
+;	Add: Item: Request - Customer: Display: SEND_Customer
+
+[Report : SEND_Account]
+	
+	Form: SEND_Account
+	
+	[Form: SEND_Account]
+		
+		Part: SEND_Account
+		Delete: XMLTag
+
+	[Part: SEND_Account]
+		
+		Line: SEND_Account
+		Repeat: SEND_Account : SEND_Account_Tally
+		Scroll: Vertical
+		
+		[Line: SEND_Account]
+			
+			Field: SEND_Account_name, SEND_Account_doctype, SEND_Account_group
+			Field: SEND_company
+
+			JSONTag: "data"
+			Empty: $$Line > @@RecordsLimit
+						
+			[Field: SEND_Account_name]
+				
+				Set as: $Name
+				JSONTag: "account_name"
+				
+				
+			[Field: SEND_Account_doctype]
+				
+				Set as: "Account"
+				JSONTag: "doctype"
+
+			[Field: SEND_Account_group]
+
+				Set as: $Parent + " - " + @@EnableERPNextCmpAbbr
+				JSONTag : "parent_account"
+
+[Collection: SEND_Account_Tally]
+	
+	Type: Ledger
+	Belongs To: Yes
+	Filter : WebStatus
+	Fetch: Name, Parent
+	Filter: NonDebtors, NonCreditors
+	
+	[System: Formula]
+		
+		NonDebtors : Not $$IsGroupSundryDebtors:$Parent
+		NonCreditors : Not $$IsGroupSundryCreditors:$Parent
+
+;	Filter: Customer_DebugFilter
+;	
+;	[System: Formula]
+;		
+;		Customer_DebugFilter: $Name IN ("2N 2N Enterprises, Hata Bharandi", "3 Star Electrical, Umarkot")
