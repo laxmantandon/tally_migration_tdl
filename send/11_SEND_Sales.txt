@@ -14,7 +14,7 @@
 	
 [#Menu: ExpressIntegration]
 	
-	Add: Item : Send SalesInvoice One : Call: SEND_SalesInvoice
+;	Add: Item : Send SalesInvoice One : Call: SEND_SalesInvoice
 ;	Add: Item: Send SalesInvoice_Cont : Call: SEND_SalesInvoice_Start
 
 	[Function: SEND_SalesInvoice_Start]

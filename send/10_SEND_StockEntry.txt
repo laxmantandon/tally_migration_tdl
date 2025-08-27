@@ -37,7 +37,7 @@
 	07 : Do If: ($$NumItems:SEND_StockEntry_Tally = 0) :  Return
 
 	08 : Stop Timer: SEND_StockEntry_Timer
-	09 : Start Progress: 1 : "Sending Purchase Invoices" : ""
+	09 : Start Progress: 1 : "Sending Stock Entries Invoices" : ""
 
 	10 : Walk Collection: SEND_StockEntry
 	11 : Set: vStatus : $Status

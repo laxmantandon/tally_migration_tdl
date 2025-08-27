@@ -7,10 +7,18 @@
 	Export Header	: "Authorization: " + "token " + @@AuthToken
 
 	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.customer_opening'
-;	Data Source: HTTP JSON: @@ERPNextHost + '/api/method/express_tally.receive_tally.create_address'
 
 	RemoteRequest: SEND_CustomerOp : UTF8
 	JSON Object Path: "message:1"
+
+	[Function: SEND_CustomerOp_Start]
+		
+		10 : Start Timer: SEND_CustomerOp_Timer : 1
+		
+	[System: Events]
+		
+		SEND_CustomerOp_Timer : Timer: True: Call: SEND_CustomerOp
+
 	
 ;[#Menu: ExpressIntegration]
 ;	
@@ -21,6 +29,13 @@
 	Variable : vName  : String
 	Variable : vMessage : String
 	
+	06 : Do If: ($$NumItems:SEND_CustomerOp_Tally = 0) :  Stop Timer: SEND_CustomerOp_Timer
+	07 : Do If: ($$NumItems:SEND_CustomerOp_Tally = 0) :  Return
+
+;	08 : Stop Timer: SEND_CustomerOp_Timer
+	09 : Start Progress: 1 : "Sending Customer Opening Invoices" : ""
+
+
 	10 : Walk Collection: SEND_CustomerOp
 	20 : 	If: $Status
 	22 :	Start Batch Post
@@ -44,8 +59,8 @@
 	
 	Form: SEND_CustomerOp
 	Variable: SVFromDate, SVToDate
-	Set: SVFromDate : @@CmpStartDate
-	Set: SVToDate	: $$YearEnd:@@CmpStartDate
+	Set: SVFromDate : @@EnableERPNextClosingDate
+	Set: SVToDate	: @@EnableERPNextClosingDate
 	
 	[Form: SEND_CustomerOp]
 		
@@ -67,7 +82,7 @@
 
 			[Field: SEND_CustomerOp]
 				
-				Set as: $Name
+				Set as: if $$IsEmpty:($LedgerCode:Ledger:$Name) then $Name else $LedgerCode:Ledger:$Name
 				JSONTag: "account"
 		
 		[Part: SEND_CustomerOp_bills]
@@ -92,7 +107,7 @@
 			[Field: SEND_CustomerOp_customer]
 				
 				Json Tag: "customer"
-				Set as: $customer
+				Set as : $customer ;
 
 			[Field: SEND_CustomerOp_company]
 
@@ -134,8 +149,8 @@
 
 [Collection: SEND_CustomerOp_Ledgers]
 	
-	Parm Var: SVFromDate : Date: @@CmpStartDate
-	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+	Parm Var: SVFromDate : Date: @@EnableERPNextClosingDate
+	Parm Var: SVToDate	 : Date: @@EnableERPNextClosingDate
 
 	Type: Ledger 
 	Child Of: $$GroupSundryDebtors
@@ -143,10 +158,17 @@
 	Filter: Bill_Status
 	Filter: Bill_HasClosing
 	
+
+;	Filter : Debug_Filter
+;	
+;	[System : Formula]
+;		
+;		Debug_Filter : $Name = "EVERY DAY HOUSEHOLD LTD"
+
 	[System: Formula]
 		
 		Bill_Status : $Bill_Status != @@ERPNextResetFlag
-		Bill_HasClosing : Not $$IsEmpty:($$ToValue:##SVToDate:$ClosingBalance)
+		Bill_HasClosing : Not $$IsEmpty:($$ToValue:@@EnableERPNextClosingDate:$ClosingBalance)
 		
 	[System: UDf]
 		
@@ -155,8 +177,8 @@
 
 [Collection: SEND_CustomerOp_TallySrc]
 	
-	Parm Var: SVFromDate : Date: @@CmpStartDate
-	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+	Parm Var: SVFromDate : Date: @@EnableERPNextClosingDate
+	Parm Var: SVToDate	 : Date: @@EnableERPNextClosingDate
 
 	Parm Var: vLEdgerName : String : $Name
 
@@ -164,23 +186,17 @@
 	Child Of: $Name
 	Belongs To: Yes
 	
-;	Filter : Debug_Filter
-;	
-;	[System : Formula]
-;		
-;		Debug_Filter : $Parent = "Ajaz Khan, (A.K. Electricals), Baihar" ;"Sanjay Electrical's, Dongargarh" ;"Virendra Electricals, Akaltara"
-
 [Collection: SEND_CustomerOp_Tally]
 
-	Parm Var: SVFromDate : Date: @@CmpStartDate
-	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+	Parm Var: SVFromDate : Date: @@EnableERPNextClosingDate
+	Parm Var: SVToDate	 : Date: @@EnableERPNextClosingDate
 
 	Source Collection: SEND_CustomerOp_TallySrc
 	Compute: bill_name 		: $Name
-	Compute: customer	 	: $Parent
+	Compute: customer	 	: if $$IsEmpty:($LedgerCode:Ledger:$Parent) then $Parent else $LedgerCode:Ledger:$Parent ;$Parent
 	Compute: posting_date 	: $BillDate
 	Compute: due_date		: $$String:$BillCreditPeriod:UniversalDate 
-	Compute: debit_to		: $Parent + " - " + @@EnableERPNextCmpAbbr
+	Compute: debit_to		: "Debtors" + " - " + @@EnableERPNextCmpAbbr
 	Compute: against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
 	Compute: amount			: $ClosingBalance
 	
@@ -193,10 +209,10 @@
 		[Object: LEDCustomerOnAccount]
 			
 			bill_name 		: "On Account" ;$Name
-			customer	 	: #SEND_CustomerOp
-			posting_date 	: $$YearEnd:@@CmpStartDate
-			due_date		: $$YearEnd:@@CmpStartDate
-			debit_to		: #SEND_CustomerOp + " - " + @@EnableERPNextCmpAbbr
+			customer	 	: $LedgerCode:Ledger:#SEND_CustomerOp
+			posting_date 	: @@EnableERPNextClosingDate
+			due_date		: @@EnableERPNextClosingDate
+			debit_to		: "Debtors" + " - " + @@EnableERPNextCmpAbbr
 			against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
 			amount			: $OnAccountValue:Ledger:#SEND_CustomerOp
 				

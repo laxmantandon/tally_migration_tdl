@@ -36,7 +36,7 @@
 					[Part: EnableERPNextKeys]
 						
 						Line: FormSubTitle, EnableERPNextHost, EnableERPNextKeys, EnableERPNextSecret, EnableERPNextRecords, EnableERPNextBranch, +
-							  EnableERPNextCmpAbbr, EnableERPNextLastSyncOn, EnableERPNextResetFlag, EnableERPNextUpdateStock
+							  EnableERPNextCmpAbbr, EnableERPNextLastSyncOn, EnableERPNextResetFlag, EnableERPNextUpdateStock, EnableERPNextClosingDate
 						Local: Field: FormSubTitle : Info: "ERPNExt Api Configuration"
 						Local: Line: Default : Space Top: 0.30
 						Local: Line: Default : Space Bottom: 0.30
@@ -149,6 +149,16 @@
 								Set as: "0"
 								Set Always: Yes
 
+						[Line: EnableERPNextClosingDate]
+						
+							Field: Long Prompt, EnableERPNextClosingDate
+							Local: Field: Long Prompt : Info: "Books Closing Date:"
+							
+							[Field: EnableERPNextClosingDate]
+								
+								Use: Uni Date Field
+								Storage: EnableERPNextClosingDate
+
 	[System: UDf]
 		
 		EnableERPNextImp 		: Logical	: 31588
@@ -161,6 +171,7 @@
 		EnableERPNextRecords	: Number	: 31595
 		EnableERPNextCmpAbbr 	: String	: 31596
 		EnableERPNextUpdateStock : String: 31597
+		EnableERPNextClosingDate : Date: 31598
 
 [System: Formula]
 	
@@ -178,6 +189,7 @@
 	AuthToken 			: @@ERPNextAPIKey + ":" + @@ERPNextAPISecret
 
 	EnableERPNextUpdateStock : $EnableERPNextUpdateStock:Company:##SVCurrentCompany
+	EnableERPNextClosingDate: $EnableERPNextClosingDate:Company:##SVCurrentCompany
 
 	locExpressErpNext	: "ERPNext"
 
@@ -214,8 +226,8 @@
 
 		Item: Blank
 		Indent: "Opening Balances"
-		Item: Customer Opening : Call: SEND_CustomerOp
-		Item: Supplier Opening : Call: SEND_SupplierOp
+		Item: Customer Opening : Call: SEND_CustomerOp_Start
+		Item: Supplier Opening : Call: SEND_SupplierOp_Start
 
 		Item: Blank
 		Indent: "Transactions"

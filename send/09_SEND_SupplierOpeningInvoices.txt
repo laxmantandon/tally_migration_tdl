@@ -16,11 +16,27 @@
 ;	
 ;	Add: Item: Send Supplier Opening : Call: SEND_SupplierOp
 
+	[Function: SEND_SupplierOp_Start]
+		
+		10 : Start Timer: SEND_SupplierOp_Timer : 1
+		
+	[System: Events]
+		
+		SEND_SupplierOp_Timer : Timer: True: Call: SEND_SupplierOp
+
+
 [Function: SEND_SupplierOp]
 
 	Variable : vName  : String
 	Variable : vMessage : String
 	
+	06 : Do If: ($$NumItems:SEND_SupplierOp_Tally = 0) :  Stop Timer: SEND_SupplierOp_Timer
+	07 : Do If: ($$NumItems:SEND_SupplierOp_Tally = 0) :  Return
+
+;	08 : Stop Timer: SEND_SupplierOp_Timer
+	09 : Start Progress: 1 : "Sending Customer Opening Invoices" : ""
+
+
 	10 : Walk Collection: SEND_SupplierOp
 	20 : 	If: $Status
 	22 :	Start Batch Post
@@ -44,8 +60,8 @@
 	
 	Form: SEND_SupplierOp
 	Variable: SVFromDate, SVToDate
-	Set: SVFromDate : @@CmpStartDate
-	Set: SVToDate	: $$YearEnd:@@CmpStartDate
+	Set: SVFromDate : @@EnableERPNextClosingDate
+	Set: SVToDate	: @@EnableERPNextClosingDate
 	
 	[Form: SEND_SupplierOp]
 		
@@ -134,8 +150,8 @@
 
 [Collection: SEND_SupplierOp_Ledgers]
 	
-	Parm Var: SVFromDate : Date: @@CmpStartDate
-	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+	Parm Var: SVFromDate : Date: @@EnableERPNextClosingDate
+	Parm Var: SVToDate	 : Date: @@EnableERPNextClosingDate
 
 	Type: Ledger 
 	Child Of: $$GroupSundryCreditors
@@ -152,8 +168,8 @@
 
 [Collection: SEND_SupplierOp_TallySrc]
 	
-	Parm Var: SVFromDate : Date: @@CmpStartDate
-	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+	Parm Var: SVFromDate : Date: @@EnableERPNextClosingDate
+	Parm Var: SVToDate	 : Date: @@EnableERPNextClosingDate
 
 	Parm Var: vLEdgerName : String : $Name
 
@@ -164,15 +180,15 @@
 
 [Collection: SEND_SupplierOp_Tally]
 
-	Parm Var: SVFromDate : Date: @@CmpStartDate
-	Parm Var: SVToDate	 : Date: $$YearEnd:@@CmpStartDate
+	Parm Var: SVFromDate : Date: @@EnableERPNextClosingDate
+	Parm Var: SVToDate	 : Date: @@EnableERPNextClosingDate
 
 	Source Collection: SEND_SupplierOp_TallySrc
 	Compute: bill_name 		: $Name
-	Compute: Supplier	 	: $Parent
+	Compute: Supplier	 	: if $$IsEmpty:($LedgerCode:Ledger:$Parent) then $Parent else $LedgerCode:Ledger:$Parent
 	Compute: posting_date 	: $BillDate
 	Compute: due_date		: if $$IsEmpty:$BillCreditPeriod then $BillDate else $$String:$BillCreditPeriod:UniversalDate 
-	Compute: credit_to		: $Parent + " - " + @@EnableERPNextCmpAbbr
+	Compute: credit_to		: "Creditors" + " - " + @@EnableERPNextCmpAbbr
 	Compute: against_expense_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
 	Compute: amount			: $ClosingBalance
 	
@@ -185,10 +201,9 @@
 	[Object: LEDSupplierOnAccount]
 		
 		bill_name 		: "On Account" ;$Name
-		Supplier	 	: #SEND_SupplierOp
-		posting_date 	: $$YearEnd:@@CmpStartDate
-		due_date		: $$YearEnd:@@CmpStartDate
-		debit_to		: #SEND_SupplierOp + " - " + @@EnableERPNextCmpAbbr
+		customer	 	: $LedgerCode:Ledger:#SEND_SupplierOp
+		posting_date 	: @@EnableERPNextClosingDate
+		due_date		: @@EnableERPNextClosingDate
+		debit_to		: "creditors" + " - " + @@EnableERPNextCmpAbbr
 		against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
-		amount			: $OnAccountValue:Ledger:#SEND_SupplierOp
-			
+		amount			: $OnAccountValue:Ledger:#SEND_SupplierOp			
