@@ -94,7 +94,7 @@
 
 			[Field: SE_stock_entry_type]
 				
-				Set as: "Repack"
+				Set as: if $$IsEmptyCollection:InventoryEntriesIn then "Material Issue" else if $$IsEmptyCollection:InventoryEntriesOut then "Material Receipt" else "Repack"
 				JSONTag: "stock_entry_type"
 
 			[Field: SE_naming_series]
@@ -250,7 +250,7 @@
 
 	[Collection: SEND_StockEntry_Tally_In]	
 
-		Source Collection 	: SEND_StockEntry_Tally
+		Source Collection 	: . ;SEND_StockEntry_Tally
 		Walk				: InventoryEntriesIn
 		Compute				: StockItemName		: $StockItemName
 		Compute				: BilledQty		: $BilledQty
@@ -260,7 +260,7 @@
 	
 	[Collection: SEND_StockEntry_Tally_Out]	
 
-		Source Collection 	: SEND_StockEntry_Tally
+		Source Collection 	: . ;SEND_StockEntry_Tally
 		Walk				: InventoryEntriesOut
 		Compute				: StockItemName		: $StockItemName
 		Compute				: BilledQty		: $BilledQty

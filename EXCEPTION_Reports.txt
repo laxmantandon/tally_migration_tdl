@@ -238,7 +238,7 @@
 			Child Of: $$GroupSundryDebtors
 			Belongs To: Yes
 			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName, Bill_Status, Bill_Message
-			Filter: WebStatus_Error_Bill
+			Filter: WebStatus_Error_Bill, Bill_HasClosing
 
 		[!Collection: ERPException Supplier]
 
@@ -253,7 +253,7 @@
 			Type: Ledger
 			Child Of: $$GroupSundryCreditors
 			Belongs To: Yes
-			Filter: WebStatus_Error_Bill
+			Filter: WebStatus_Error_Bill, Bill_HasClosing
 			Fetch: Name, WebStatus, WebStatus_Message, WebStatus_DocName, Bill_Status, Bill_Message
 
 		[!Collection: ERPException CustomerGroup]

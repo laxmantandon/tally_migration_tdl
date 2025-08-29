@@ -30,11 +30,11 @@
 	Variable : vName  : String
 	Variable : vMessage : String
 	
-	06 : Do If: ($$NumItems:SEND_SupplierOp_Tally = 0) :  Stop Timer: SEND_SupplierOp_Timer
-	07 : Do If: ($$NumItems:SEND_SupplierOp_Tally = 0) :  Return
+	06 : Do If: ($$NumItems:SEND_SupplierOp_Ledgers = 0) :  Stop Timer: SEND_SupplierOp_Timer
+	07 : Do If: ($$NumItems:SEND_SupplierOp_Ledgers = 0) :  Return
 
 ;	08 : Stop Timer: SEND_SupplierOp_Timer
-	09 : Start Progress: 1 : "Sending Customer Opening Invoices" : ""
+	09 : Start Progress: 1 : "Sending Supplier Opening Invoices" : ""
 
 
 	10 : Walk Collection: SEND_SupplierOp
@@ -46,6 +46,7 @@
 	29 : 		Set: vMessage : $message
 	30 : 			Modify Object: (Ledger, ##vName).Bill_Status[1].Bill_Status : @@ERPNextResetFlag
 	32 :			Modify Object: (Ledger, ##vName).Bill_Message[1].Bill_Message : ##vMessage
+	35 : 			Do If: ##vMessage != "Success" :  Stop Timer: SEND_SupplierOp_Timer
 	40 :		End Walk
 	45 : 	End Batch Post
 	50 : 	End If
@@ -79,7 +80,7 @@
 			Field: SEND_SupplierOp
 			JSONTag: "data"
 			Explode: SEND_SupplierOp_bills : $$NumItems:SEND_SupplierOp_Tally > 0
-			Empty: $$Line > @@RecordsLimit
+			Empty: $$Line > @@RecordsLimit or $$NumItems:SEND_SupplierOp_Tally =0
 
 			[Field: SEND_SupplierOp]
 				
@@ -163,7 +164,7 @@
 ;	
 ;	[System : Formula]
 ;		
-;		Debug_Filter : $Name = "Anchor Electrical's Pvt.Ltd. Claim 15-16"
+;		Debug_Filter : $Name = "CR SEA BROOK INTERNATIONAL TRADERS FZE"
 
 
 [Collection: SEND_SupplierOp_TallySrc]
@@ -200,10 +201,10 @@
 	
 	[Object: LEDSupplierOnAccount]
 		
-		bill_name 		: "On Account" ;$Name
-		customer	 	: $LedgerCode:Ledger:#SEND_SupplierOp
+		bill_name 		: $LedgerCode:Ledger:#SEND_SupplierOp + "On Account" ;$Name
+		supplier	 	: $LedgerCode:Ledger:#SEND_SupplierOp
 		posting_date 	: @@EnableERPNextClosingDate
 		due_date		: @@EnableERPNextClosingDate
-		debit_to		: "creditors" + " - " + @@EnableERPNextCmpAbbr
-		against_income_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
+		credit_to		: "creditors" + " - " + @@EnableERPNextCmpAbbr
+		against_expense_account : "Temporary Opening" + " - " + @@EnableERPNextCmpAbbr
 		amount			: $OnAccountValue:Ledger:#SEND_SupplierOp			

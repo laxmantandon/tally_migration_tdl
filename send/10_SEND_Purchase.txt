@@ -86,6 +86,7 @@
 			JSONTag: "data"
 			Empty: $$Line > @@RecordsLimit	
 			Explode: PI_items
+			Explode: PI_items_service : $$IsEmptyCollection:InventoryEntries
 			Explode: PI_ledgers
 
 			[Field: PI_doctype]
@@ -373,7 +374,44 @@
 				Type: Number
 				JSONTag: "price_list_rate"
 				Set as: $rate
+
+;; If Items not selected in purhcase invoice, creating a service item 							
+
+	[Part: PI_items_service]
+		
+		Line: PI_items_service
+		Repeat: PI_items_service : SEND_Purchase_InventoryService
+		Scroll: Vertical
 				
+		[Line: PI_items_service]
+			
+			Field: PI_item_code, PI_item_name, PI_description, PI_qty, PI_stock_qty, PI_uom, PI_stock_uom
+			Field: PI_conversion_factor, PI_rate
+			Field: PI_amount, PI_expense_account, PI_warehouse, PI_cost_center
+			JSONTag: "items"
+			
+;			Local: Field: PI_uom : Set as: "Nos"
+;			Local: Field: PI_stock_uom : Set as: "Nos"
+			Local: Field: PI_conversion_factor : Set as: 1
+			Local: Field: PI_rate : Set as: 0
+			Local: Field: PI_amount : Set as: 0
+			Local: Field: PI_expense_account : Set as: $LedgerEntries[1,@@SEND_IsPurchaseLedger].LedgerName + " - " + @@EnableERPNextCmpAbbr
+
+				[Collection: SEND_Purchase_InventoryService]
+					
+					Object: SEND_Purchase_InventoryService
+					
+				[Object : SEND_Purchase_InventoryService]
+					
+						StockItemNAme : "SERVICES"
+						BilledQty : 1
+					
+				[System: Formula]
+					
+					SEND_IsPurchaseLedger : $$IsLedOfGrp:$LedgerName:$$GroupPurchase or ($$IsLedOfGrp:$LedgerName:$$GroupDirectExpenses)
+					
+
+
 
 	[Part: PI_ledgers]
 		
@@ -424,25 +462,25 @@
 			[Field: PILed_tax_amount]
 				
 				Type: Number
-				Set as: $$Number:$amount
+				Set as: if $$IsDr:$Amount then $$Number:$amount else $$Number:$Amount * -1
 				JSONTag: "tax_amount"
 
 			[Field: PILed_tax_base_amount]
 				
 				Type: Number
-				Set as: $$Number:$amount
+				Set as: if $$IsDr:$Amount then $$Number:$amount else $$Number:$Amount * -1
 				JSONTag: "base_tax_amount"
 				
 			[Field: PILed_tax_amount_after_discount_amount]
 				
 				Type: Number
-				Set as: $$Number:$amount
+				Set as: if $$IsDr:$Amount then $$Number:$amount else $$Number:$Amount * -1
 				JSONTag: "tax_amount_after_discount_amount"
 				
 			[Field: PILed_base_tax_amount_after_discount_amount]
 				
 				Type: Number
-				Set as: $$Number:$amount
+				Set as: if $$IsDr:$Amount then $$Number:$amount else $$Number:$Amount * -1
 				JSONTag: "base_tax_amount_after_discount_amount"
 
 			[Field: PILed_base_total]

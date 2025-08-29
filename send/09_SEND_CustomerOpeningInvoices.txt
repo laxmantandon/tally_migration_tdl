@@ -29,8 +29,8 @@
 	Variable : vName  : String
 	Variable : vMessage : String
 	
-	06 : Do If: ($$NumItems:SEND_CustomerOp_Tally = 0) :  Stop Timer: SEND_CustomerOp_Timer
-	07 : Do If: ($$NumItems:SEND_CustomerOp_Tally = 0) :  Return
+	06 : Do If: ($$NumItems:SEND_CustomerOp_Ledgers = 0) :  Stop Timer: SEND_CustomerOp_Timer
+	07 : Do If: ($$NumItems:SEND_CustomerOp_Ledgers = 0) :  Return
 
 ;	08 : Stop Timer: SEND_CustomerOp_Timer
 	09 : Start Progress: 1 : "Sending Customer Opening Invoices" : ""
@@ -45,6 +45,7 @@
 	29 : 		Set: vMessage : $message
 	30 : 			Modify Object: (Ledger, ##vName).Bill_Status[1].Bill_Status : @@ERPNextResetFlag
 	32 :			Modify Object: (Ledger, ##vName).Bill_Message[1].Bill_Message : ##vMessage
+	35 : 			Do If: ##vMessage != "Success" :  Stop Timer: SEND_CustomerOp_Timer
 	40 :		End Walk
 	45 : 	End Batch Post
 	50 : 	End If
@@ -78,7 +79,7 @@
 			Field: SEND_CustomerOp
 			JSONTag: "data"
 			Explode: SEND_CustomerOp_bills : $$NumItems:SEND_CustomerOp_Tally > 0
-			Empty: $$Line > @@RecordsLimit
+			Empty: $$Line > @@RecordsLimit or $$NumItems:SEND_CustomerOp_Tally = 0
 
 			[Field: SEND_CustomerOp]
 				
@@ -163,7 +164,11 @@
 ;	
 ;	[System : Formula]
 ;		
-;		Debug_Filter : $Name = "EVERY DAY HOUSEHOLD LTD"
+;		Debug_Filter : $Name = "HOTLINE CASE INVESTMENTS LTD"
+
+[#Object: Ledger]
+	
+	test : $$ToValue:@@EnableERPNextClosingDate:$ClosingBalance
 
 	[System: Formula]
 		
@@ -208,7 +213,7 @@
 	
 		[Object: LEDCustomerOnAccount]
 			
-			bill_name 		: "On Account" ;$Name
+			bill_name 		: $LedgerCode:Ledger:#SEND_CustomerOp + "On Account"
 			customer	 	: $LedgerCode:Ledger:#SEND_CustomerOp
 			posting_date 	: @@EnableERPNextClosingDate
 			due_date		: @@EnableERPNextClosingDate

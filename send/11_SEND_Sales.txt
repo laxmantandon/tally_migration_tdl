@@ -596,7 +596,7 @@
 						else if $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName In ("GST") +
 						then "On Previous Row Total" +
 						else if $TaxType:Ledger:$LedgerName = "TCS" +
-						then "Actual" else "On Net Total"
+						then "Actual" else "Actual"
 	
 		row_id		: If $().HasDiscOrCartage > 0 and $TaxType:Ledger:$LedgerName Not In ("GST") +
 						then ""+
